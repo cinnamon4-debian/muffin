@@ -44,7 +44,8 @@
  */
 #define KEY_TITLEBAR_FONT "titlebar-font"
 #define KEY_NUM_WORKSPACES "num-workspaces"
-#define KEY_WORKSPACE_NAMES "workspace-names"
+#define KEY_WORKSPACE_NAMES "workspace-name-overrides"
+#define KEY_WORKSPACE_CYCLE "workspace-cycle"
 
 /* Keys from "foreign" schemas */
 #define KEY_GNOME_ACCESSIBILITY "toolkit-accessibility"
@@ -60,6 +61,7 @@
 /* These are the different schemas we are keeping
  * a GSettings instance for */
 #define SCHEMA_GENERAL         "org.gnome.desktop.wm.preferences"
+#define SCHEMA_CINNAMON          "org.cinnamon"
 #define SCHEMA_MUFFIN          "org.cinnamon.muffin"
 #define SCHEMA_INTERFACE       "org.gnome.desktop.interface"
 
@@ -79,6 +81,7 @@ static gboolean raise_on_click = TRUE;
 static gboolean attach_modal_dialogs = FALSE;
 static char* current_theme = NULL;
 static int num_workspaces = 4;
+static gboolean workspace_cycle = FALSE;
 static GDesktopTitlebarAction action_double_click_titlebar = G_DESKTOP_TITLEBAR_ACTION_TOGGLE_MAXIMIZE;
 static GDesktopTitlebarAction action_middle_click_titlebar = G_DESKTOP_TITLEBAR_ACTION_LOWER;
 static GDesktopTitlebarAction action_right_click_titlebar = G_DESKTOP_TITLEBAR_ACTION_MENU;
@@ -280,6 +283,13 @@ static MetaBoolPreference preferences_bool[] =
         META_PREF_TITLEBAR_FONT, /* note! shares a pref */
       },
       &use_system_font,
+    },
+    {
+      { "workspace-cycle",
+        SCHEMA_MUFFIN,
+        META_PREF_WORKSPACE_CYCLE,
+      },
+      &workspace_cycle,
     },
     {
       { "dynamic-workspaces",
@@ -825,6 +835,10 @@ meta_prefs_init (void)
   g_signal_connect (settings, "changed", G_CALLBACK (settings_changed), NULL);
   g_hash_table_insert (settings_schemas, g_strdup (SCHEMA_MUFFIN), settings);
 
+  settings = g_settings_new (SCHEMA_CINNAMON);
+  g_signal_connect (settings, "changed", G_CALLBACK (settings_changed), NULL);
+  g_hash_table_insert (settings_schemas, g_strdup (SCHEMA_CINNAMON), settings);
+
   /* Individual keys we watch outside of our schemas */
   settings = g_settings_new (SCHEMA_INTERFACE);
   g_signal_connect (settings, "changed::" KEY_GNOME_ACCESSIBILITY,
@@ -999,6 +1013,9 @@ settings_changed (GSettings *settings,
   const GVariantType *type;
   MetaEnumPreference *cursor;
   gboolean found_enum;
+  gchar *schema;
+  
+  g_object_get(settings, "schema", &schema, NULL);
 
   /* String array, handled separately */
   if (strcmp (key, KEY_WORKSPACE_NAMES) == 0)
@@ -1007,6 +1024,9 @@ settings_changed (GSettings *settings,
         queue_changed (META_PREF_WORKSPACE_NAMES);
       return;
     }
+  
+  if (strcmp(schema, SCHEMA_CINNAMON) == 0)
+    return;
 
   value = g_settings_get_value (settings, key);
   type = g_variant_get_type (value);
@@ -1507,6 +1527,12 @@ meta_prefs_get_num_workspaces (void)
 }
 
 gboolean
+meta_prefs_get_workspace_cycle (void)
+{
+  return workspace_cycle;
+}
+
+gboolean
 meta_prefs_get_dynamic_workspaces (void)
 {
   return dynamic_workspaces;
@@ -1623,6 +1649,9 @@ meta_preference_to_string (MetaPreference pref)
     case META_PREF_WORKSPACES_ONLY_ON_PRIMARY:
       return "WORKSPACES_ONLY_ON_PRIMARY";
 
+    case META_PREF_WORKSPACE_CYCLE:
+      return "WORKSPACE_CYCLE";
+
     case META_PREF_NO_TAB_POPUP:
       return "NO_TAB_POPUP";
 
@@ -1640,7 +1669,7 @@ meta_preference_to_string (MetaPreference pref)
 void
 meta_prefs_set_num_workspaces (int n_workspaces)
 {
-  MetaBasePreference *pref;
+  MetaBasePreference *pref = NULL;
 
   find_pref (preferences_int, sizeof(MetaIntPreference),
              KEY_NUM_WORKSPACES, &pref);
@@ -1797,7 +1826,7 @@ update_workspace_names (void)
   int n_workspace_names, n_names;
   gboolean changed = FALSE;
 
-  names = g_settings_get_strv (SETTINGS (SCHEMA_GENERAL), KEY_WORKSPACE_NAMES);
+  names = g_settings_get_strv (SETTINGS (SCHEMA_CINNAMON), KEY_WORKSPACE_NAMES);
   n_names = g_strv_length (names);
   n_workspace_names = workspace_names ? g_strv_length (workspace_names) : 0;
 
@@ -1890,7 +1919,7 @@ meta_prefs_change_workspace_name (int         num,
       g_variant_builder_add (&builder, "s", value);
     }
 
-  g_settings_set_value (SETTINGS (SCHEMA_GENERAL), KEY_WORKSPACE_NAMES,
+  g_settings_set_value (SETTINGS (SCHEMA_CINNAMON), KEY_WORKSPACE_NAMES,
                         g_variant_builder_end (&builder));
 }
 
@@ -1918,7 +1947,7 @@ meta_prefs_get_visual_bell_type (void)
   return visual_bell_type;
 }
 
-gboolean
+LOCAL_SYMBOL gboolean
 meta_prefs_add_keybinding (const char           *name,
                            const char           *schema,
                            MetaKeyBindingAction  action,
@@ -1975,7 +2004,7 @@ meta_prefs_add_keybinding (const char           *name,
   return TRUE;
 }
 
-gboolean
+LOCAL_SYMBOL gboolean
 meta_prefs_remove_keybinding (const char *name)
 {
   MetaKeyPref *pref;
@@ -2148,7 +2177,7 @@ meta_prefs_get_live_hidden_windows (void)
 void
 meta_prefs_set_live_hidden_windows (gboolean whether)
 {
-  MetaBasePreference *pref;
+  MetaBasePreference *pref = NULL;
 
   find_pref (preferences_bool, sizeof(MetaBoolPreference),
              KEY_LIVE_HIDDEN_WINDOWS, &pref);
@@ -2172,7 +2201,7 @@ meta_prefs_get_no_tab_popup (void)
 void
 meta_prefs_set_no_tab_popup (gboolean whether)
 {
-  MetaBasePreference *pref;
+  MetaBasePreference *pref = NULL;
 
   find_pref (preferences_bool, sizeof(MetaBoolPreference),
              KEY_NO_TAB_POPUP, &pref);

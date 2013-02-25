@@ -23,7 +23,9 @@
  * 02110-1335, USA.
  */
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #define _SVID_SOURCE /* for putenv() */
 
 #include <config.h>
@@ -673,7 +675,7 @@ meta_display_get_keybinding_action (MetaDisplay  *display,
   MetaKeyBinding *binding;
   KeySym keysym;
 
-  keysym = XKeycodeToKeysym (display->xdisplay, keycode, 0);
+  keysym = XkbKeycodeToKeysym (display->xdisplay, keycode, 0, 0);
   mask = mask & 0xff & ~display->ignored_modifier_mask;
   binding = display_get_keybinding (display, keysym, keycode, mask);
 
@@ -686,7 +688,7 @@ meta_display_get_keybinding_action (MetaDisplay  *display,
     return META_KEYBINDING_ACTION_NONE;
 }
 
-void
+LOCAL_SYMBOL void
 meta_display_process_mapping_event (MetaDisplay *display,
                                     XEvent      *event)
 { 
@@ -763,7 +765,7 @@ bindings_changed_callback (MetaPreference pref,
 }
 
 
-void
+LOCAL_SYMBOL void
 meta_display_shutdown_keys (MetaDisplay *display)
 {
   /* Note that display->xdisplay is invalid in this function */
@@ -931,7 +933,7 @@ ungrab_all_keys (MetaDisplay *display,
     meta_error_trap_pop (display);
 }
 
-void
+LOCAL_SYMBOL void
 meta_screen_grab_keys (MetaScreen *screen)
 {
   MetaDisplay *display = screen->display;  
@@ -955,7 +957,7 @@ meta_screen_grab_keys (MetaScreen *screen)
   screen->keys_grabbed = TRUE;
 }
 
-void
+LOCAL_SYMBOL void
 meta_screen_ungrab_keys (MetaScreen  *screen)
 {
   if (screen->keys_grabbed)
@@ -965,7 +967,7 @@ meta_screen_ungrab_keys (MetaScreen  *screen)
     }
 }
 
-void
+LOCAL_SYMBOL void
 meta_window_grab_keys (MetaWindow  *window)
 {
   if (window->all_keys_grabbed)
@@ -1001,7 +1003,7 @@ meta_window_grab_keys (MetaWindow  *window)
   window->grab_on_frame = window->frame != NULL;
 }
 
-void
+LOCAL_SYMBOL void
 meta_window_ungrab_keys (MetaWindow  *window)
 {
   if (window->keys_grabbed)
@@ -1136,7 +1138,7 @@ meta_screen_ungrab_all_keys (MetaScreen *screen, guint32 timestamp)
     }
 }
 
-gboolean
+LOCAL_SYMBOL gboolean
 meta_window_grab_all_keys (MetaWindow  *window,
                            guint32      timestamp)
 {
@@ -1172,7 +1174,7 @@ meta_window_grab_all_keys (MetaWindow  *window,
   return retval;
 }
 
-void
+LOCAL_SYMBOL void
 meta_window_ungrab_all_keys (MetaWindow *window, guint32 timestamp)
 {
   if (window->all_keys_grabbed)
@@ -1529,7 +1531,7 @@ process_overlay_key (MetaDisplay *display,
  * FIXME: An iterative solution would probably be simpler to understand
  * (and help us solve the other fixmes).
  */
-gboolean
+LOCAL_SYMBOL gboolean
 meta_display_process_key_event (MetaDisplay *display,
                                 MetaWindow  *window,
                                 XEvent      *event)
@@ -1572,7 +1574,7 @@ meta_display_process_key_event (MetaDisplay *display,
   
   /* window may be NULL */
   
-  keysym = XKeycodeToKeysym (display->xdisplay, event->xkey.keycode, 0);
+  keysym = XkbKeycodeToKeysym (display->xdisplay, event->xkey.keycode, 0, 0);
 
   str = XKeysymToString (keysym);
   
@@ -3593,7 +3595,7 @@ handle_set_spew_mark (MetaDisplay    *display,
   meta_verbose ("-- MARK MARK MARK MARK --\n");
 }
 
-void
+LOCAL_SYMBOL void
 meta_set_keybindings_disabled (gboolean setting)
 {
   all_bindings_disabled = setting;
@@ -4215,7 +4217,7 @@ init_builtin_key_bindings (MetaDisplay *display)
                           handle_move_to_center, 0);
 }
 
-void
+LOCAL_SYMBOL void
 meta_display_init_keys (MetaDisplay *display)
 {
   /* Keybindings */

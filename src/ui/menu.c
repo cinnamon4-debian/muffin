@@ -320,7 +320,7 @@ menu_item_new (MenuItem *menuitem, int workspace_id)
   return mi;
 }
 
-MetaWindowMenu*
+LOCAL_SYMBOL MetaWindowMenu*
 meta_window_menu_new   (MetaFrames         *frames,
                         MetaMenuOp          ops,
                         MetaMenuOp          insensitive,
@@ -336,9 +336,6 @@ meta_window_menu_new   (MetaFrames         *frames,
   /* FIXME: Modifications to 'ops' should happen in meta_window_show_menu */
   if (n_workspaces < 2)
     ops &= ~(META_MENU_OP_STICK | META_MENU_OP_UNSTICK | META_MENU_OP_WORKSPACES);
-  else if (n_workspaces == 2) 
-    /* #151183: If we only have two workspaces, disable the menu listing them. */
-    ops &= ~(META_MENU_OP_WORKSPACES);
   
   menu = g_new (MetaWindowMenu, 1);
   menu->frames = frames;
@@ -496,7 +493,7 @@ meta_window_menu_new   (MetaFrames         *frames,
   return menu;
 }
 
-void
+LOCAL_SYMBOL void
 meta_window_menu_popup (MetaWindowMenu     *menu,
                         int                 root_x,
                         int                 root_y,
@@ -525,7 +522,7 @@ meta_window_menu_popup (MetaWindowMenu     *menu,
     meta_warning ("GtkMenu failed to grab the pointer\n");
 }
 
-void
+LOCAL_SYMBOL void
 meta_window_menu_free (MetaWindowMenu *menu)
 {
   gtk_widget_destroy (menu->menu);

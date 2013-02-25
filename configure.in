@@ -1,8 +1,8 @@
 AC_PREREQ(2.50)
 
 m4_define([muffin_major_version], [1])
-m4_define([muffin_minor_version], [1])
-m4_define([muffin_micro_version], [2])
+m4_define([muffin_minor_version], [7])
+m4_define([muffin_micro_version], [1])
 
 m4_define([muffin_version],
           [muffin_major_version.muffin_minor_version.muffin_micro_version])
@@ -40,6 +40,7 @@ AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE,"$GETTEXT_PACKAGE",[Name of default gettext d
 
 IT_PROG_INTLTOOL([0.34.90])
 AC_PROG_CC
+AM_PROG_CC_C_O
 AC_ISC_POSIX
 AC_HEADER_STDC
 AC_LIBTOOL_WIN32_DLL
@@ -60,6 +61,16 @@ AC_CHECK_SIZEOF(__int64)
 
 ## byte order
 AC_C_BIGENDIAN
+
+#### Usability of visibility attributes
+gl_VISIBILITY
+AC_DEFINE(LOCAL_SYMBOL, [], [attribute of the non-exported symbols])
+AC_DEFINE(API_EXPORTED, [], [attribute of the symbols exported in the API])
+if test $HAVE_VISIBILITY = 1; then
+     AC_DEFINE(LOCAL_SYMBOL, [__attribute__ ((visibility ("hidden")))])
+     AC_DEFINE(API_EXPORTED, [__attribute__ ((visibility ("default")))])
+fi
+
 
 CANBERRA_GTK=libcanberra-gtk3
 CANBERRA_GTK_VERSION=0.26
@@ -502,13 +513,3 @@ muffin-$VERSION
 	Xcursor:                  ${have_xcursor}
 "
 
-
-MUFFIN_MINOR_VERSION=muffin_minor_version
-if expr $MUFFIN_MINOR_VERSION % 2 > /dev/null ; then
-   stable_version=`expr $MUFFIN_MINOR_VERSION - 1`
-   echo "This is the UNSTABLE branch of muffin"
-   echo -n "Use 3.$stable_version.x for stable "
-   echo    "(gnome-3-$stable_version branch in git)"
-else
-   echo "This is the stable branch of muffin"
-fi

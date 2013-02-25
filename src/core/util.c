@@ -22,7 +22,9 @@
  * 02110-1335, USA.
  */
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #define _POSIX_C_SOURCE 200112L /* for fdopen() */
 
 #include <config.h>
@@ -287,7 +289,7 @@ meta_debug_spew_real (const char *format, ...)
   out = logfile ? logfile : stderr;
   
   if (no_prefix == 0)
-    utf8_fputs (_("Window manager: "), out);
+    utf8_fputs ("Window manager: ", out);
   utf8_fputs (str, out);
 
   fflush (out);
@@ -435,7 +437,7 @@ meta_bug (const char *format, ...)
 #endif
 
   if (no_prefix == 0)
-    utf8_fputs (_("Bug in window manager: "), out);
+    utf8_fputs ("Bug in window manager: ", out);
   utf8_fputs (str, out);
 
   fflush (out);
@@ -468,7 +470,7 @@ meta_warning (const char *format, ...)
 #endif
 
   if (no_prefix == 0)
-    utf8_fputs (_("Window manager warning: "), out);
+    utf8_fputs ("Window manager warning: ", out);
   utf8_fputs (str, out);
 
   fflush (out);
@@ -496,7 +498,7 @@ meta_fatal (const char *format, ...)
 #endif
 
   if (no_prefix == 0)
-    utf8_fputs (_("Window manager error: "), out);
+    utf8_fputs ("Window manager error: ", out);
   utf8_fputs (str, out);
 
   fflush (out);
