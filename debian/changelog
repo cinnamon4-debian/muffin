@@ -1,3 +1,10 @@
+muffin (1.7.1-1) UNRELEASED; urgency=low
+
+  * New upstream: muffin_1.7.1
+  * Drop patch applied in upstream: hide-private-symbols.patch
+
+ -- Nicolas Bourdaud <nicolas.bourdaud@gmail.com>  Mon, 25 Feb 2013 20:47:30 +0100
+
 muffin (1.1.2-1) unstable; urgency=low
 
   * New upstream: muffin_1.1.2
