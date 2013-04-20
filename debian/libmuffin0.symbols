@@ -233,6 +233,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_screen_get_compositor_data@Base 1.1.0
  meta_screen_get_display@Base 1.1.0
  meta_screen_get_monitor_geometry@Base 1.1.0
+ meta_screen_get_mouse_window@Base 1.7.3
  meta_screen_get_n_monitors@Base 1.1.0
  meta_screen_get_n_workspaces@Base 1.1.0
  meta_screen_get_primary_monitor@Base 1.1.0
