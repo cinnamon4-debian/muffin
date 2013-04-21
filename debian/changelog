@@ -1,9 +1,9 @@
-muffin (1.7.3-1) UNRELEASED; urgency=low
+muffin (1.7.3-1) unstable; urgency=low
 
   * New upstream: muffin_1.7.3
   * remove patch (applied uptream): fix-japanese-input-problem.patch
 
- -- Nicolas Bourdaud <nicolas.bourdaud@gmail.com>  Sat, 20 Apr 2013 17:36:35 +0200
+ -- Nicolas Bourdaud <nicolas.bourdaud@gmail.com>  Sun, 21 Apr 2013 13:02:08 +0200
 
 muffin (1.7.2-1) unstable; urgency=low
 
