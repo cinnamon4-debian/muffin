@@ -1,8 +1,8 @@
 AC_PREREQ(2.50)
 
 m4_define([muffin_major_version], [1])
-m4_define([muffin_minor_version], [7])
-m4_define([muffin_micro_version], [3])
+m4_define([muffin_minor_version], [8])
+m4_define([muffin_micro_version], [1])
 
 m4_define([muffin_version],
           [muffin_major_version.muffin_minor_version.muffin_micro_version])
@@ -86,6 +86,7 @@ MUFFIN_PC_MODULES="
    xcomposite >= 0.2 xfixes xrender xdamage
    $CLUTTER_PACKAGE >= 1.9.10
    cogl-1.0 >= 1.9.6
+   gl
 "
 
 GLIB_GSETTINGS
@@ -194,7 +195,11 @@ if test x$found_introspection != xno; then
   # parallel install, there's no real reason to change directories, filenames,
   # etc. as we change the Muffin tarball version. Note that this must match
   # api_version in src/Makefile.am
-  META_GIR=Meta_3_0_gir
+
+  # This is set to a magic number which is different from the API which
+  # Mutter uses.  Otherwise there will be dependency conflicts in RPM
+  # based distributions that automatically resolve typelib file dependencies.
+  META_GIR=Meta_Muffin_0_gir
   # META_GIR=[Meta_]muffin_major_version[_]muffin_minor_version[_gir]
   AC_SUBST(META_GIR)
 fi

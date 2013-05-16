@@ -38,12 +38,9 @@ Architecture: any
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          muffin-common (= ${source:Version}),
-         libgnome2-common,
          zenity
 Provides: x-window-manager
-Recommends: gnome-session | x-session-manager
-Suggests: gnome-control-center (>= 1:2.5.4),
-          gnome-themes,
+Suggests: gnome-themes,
           xdg-user-dirs
 Description: lightweight GTK+ window manager
  Muffin is a small window manager, using GTK+ and Clutter to do
