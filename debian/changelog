@@ -1,6 +1,7 @@
 muffin (1.8.1-1) UNRELEASED; urgency=low
 
   * New upstream: muffin_1.8.1 
+  * Bump policy version to 3.9.4 -- no changes 
 
  -- Nicolas Bourdaud <nicolas.bourdaud@gmail.com>  Thu, 16 May 2013 20:10:36 +0200
 
