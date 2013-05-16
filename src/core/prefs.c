@@ -97,6 +97,8 @@ static gboolean gnome_animations = TRUE;
 static char *cursor_theme = NULL;
 static int   cursor_size = 24;
 static int   draggable_border_width = 10;
+static int edge_tile_threshold = 48;
+static int edge_detach_threshold = 24;
 static gboolean resize_with_right_button = FALSE;
 static gboolean edge_tiling = FALSE;
 static gboolean force_fullscreen = TRUE;
@@ -459,6 +461,20 @@ static MetaIntPreference preferences_int[] =
         META_PREF_DRAGGABLE_BORDER_WIDTH,
       },
       &draggable_border_width
+    },
+    {
+      { "edge-tile-threshold",
+        SCHEMA_MUFFIN,
+        META_PREF_EDGE_TILE_THRESHOLD,
+      },
+      &edge_tile_threshold
+    },
+    {
+      { "edge-detach-threshold",
+        SCHEMA_MUFFIN,
+        META_PREF_EDGE_DETACH_THRESHOLD,
+      },
+      &edge_detach_threshold
     },
     { { NULL, 0, 0 }, NULL },
   };
@@ -1658,6 +1674,12 @@ meta_preference_to_string (MetaPreference pref)
     case META_PREF_DRAGGABLE_BORDER_WIDTH:
       return "DRAGGABLE_BORDER_WIDTH";
 
+    case META_PREF_EDGE_TILE_THRESHOLD:
+      return "EDGE_TILE_THRESHOLD";
+
+    case META_PREF_EDGE_DETACH_THRESHOLD:
+      return "EDGE_DETACH_THRESHOLD";
+
     case META_PREF_DYNAMIC_WORKSPACES:
       return "DYNAMIC_WORKSPACES";
     }
@@ -1791,7 +1813,6 @@ update_binding (MetaKeyPref *binding,
         }
   
       changed = TRUE;
-
       combo = g_malloc0 (sizeof (MetaKeyCombo));
       combo->keysym = keysym;
       combo->keycode = keycode;
@@ -1802,7 +1823,6 @@ update_binding (MetaKeyPref *binding,
                       "New keybinding for \"%s\" is keysym = 0x%x keycode = 0x%x mods = 0x%x\n",
                       binding->name, keysym, keycode, mods);
     }
-
   return changed;
 }
 
@@ -2035,6 +2055,58 @@ meta_prefs_remove_keybinding (const char *name)
   return TRUE;
 }
 
+LOCAL_SYMBOL gboolean
+meta_prefs_add_custom_keybinding (const char           *name,
+                                const char           *binding,
+                                MetaKeyBindingAction  action,
+                                MetaKeyBindingFlags   flags)
+{
+  MetaKeyPref  *pref;
+
+
+  if (g_hash_table_lookup (key_bindings, name))
+    {
+      meta_warning ("Trying to re-add custom keybinding \"%s\".\n", name);
+      return FALSE;
+    }
+
+  pref = g_new0 (MetaKeyPref, 1);
+  pref->name = g_strdup (name);
+  pref->schema = g_strdup (binding);
+  pref->action = action;
+  pref->bindings = NULL;
+  pref->add_shift = (flags & META_KEY_BINDING_REVERSES) != 0;
+  pref->per_window = (flags & META_KEY_BINDING_PER_WINDOW) != 0;
+  pref->builtin = (flags & META_KEY_BINDING_BUILTIN) != 0;
+  
+  char **strokes = g_strsplit(binding, "XYZZY", 1);
+  update_binding (pref, strokes);
+  g_strfreev (strokes);
+
+  g_hash_table_insert (key_bindings, g_strdup (name), pref);
+
+  return TRUE;
+}
+
+LOCAL_SYMBOL gboolean
+meta_prefs_remove_custom_keybinding (const char *name)
+{
+  MetaKeyPref *pref;
+
+  pref = g_hash_table_lookup (key_bindings, name);
+  if (!pref)
+    {
+      meta_warning ("Trying to remove non-existent custom keybinding \"%s\".\n", name);
+      return FALSE;
+    }
+
+  g_hash_table_remove (key_bindings, name);
+
+  queue_changed (META_PREF_KEYBINDINGS);
+
+  return TRUE;
+}
+
 /**
  * meta_prefs_get_keybindings:
  * 
@@ -2212,6 +2284,18 @@ int
 meta_prefs_get_draggable_border_width (void)
 {
   return draggable_border_width;
+}
+
+int
+meta_prefs_get_edge_tile_threshold (void)
+{
+  return edge_tile_threshold;
+}
+
+int
+meta_prefs_get_edge_detach_threshold (void)
+{
+  return edge_detach_threshold;
 }
 
 void
