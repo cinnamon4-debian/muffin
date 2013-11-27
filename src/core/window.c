@@ -53,7 +53,7 @@
 #ifdef HAVE_SHAPE
 #include <X11/extensions/shape.h>
 #endif
-
+#include <X11/XKBlib.h>
 #include <X11/extensions/Xcomposite.h>
 
 static int destroying_windows_disallowed = 0;
@@ -107,7 +107,8 @@ static void meta_window_move_resize_now (MetaWindow  *window);
 static void meta_window_unqueue (MetaWindow *window, guint queuebits);
 
 static void     update_move           (MetaWindow   *window,
-                                       gboolean      snap,
+                                       gboolean      legacy_snap,
+                                       gboolean      snap_mode,
                                        int           x,
                                        int           y);
 static gboolean update_move_timeout   (gpointer data);
@@ -115,7 +116,8 @@ static void     update_resize         (MetaWindow   *window,
                                        gboolean      snap,
                                        int           x,
                                        int           y,
-                                       gboolean      force);
+                                       gboolean      force,
+                                       gboolean      done);
 static gboolean update_resize_timeout (gpointer data);
 static gboolean should_be_on_all_workspaces (MetaWindow *window);
 
@@ -133,6 +135,12 @@ static void meta_window_move_between_rects (MetaWindow          *window,
 static void unmaximize_window_before_freeing (MetaWindow        *window);
 static void unminimize_window_and_all_transient_parents (MetaWindow *window);
 
+static void notify_tile_type (MetaWindow *window);
+
+static void normalize_tile_state (MetaWindow *window);
+
+static unsigned int get_mask_from_snap_keysym (MetaWindow *window);
+
 /* Idle handlers for the three queues (run with meta_later_add()). The
  * "data" parameter in each case will be a GINT_TO_POINTER of the
  * index into the queue arrays to use.
@@ -146,6 +154,8 @@ static gboolean idle_update_icon (gpointer data);
 
 G_DEFINE_TYPE (MetaWindow, meta_window, G_TYPE_OBJECT);
 
+#define SNAP_DELAY 2000
+
 enum {
   PROP_0,
 
@@ -156,6 +166,7 @@ enum {
   PROP_FULLSCREEN,
   PROP_MAXIMIZED_HORIZONTALLY,
   PROP_MAXIMIZED_VERTICALLY,
+  PROP_TILE_TYPE,
   PROP_MINIMIZED,
   PROP_WINDOW_TYPE,
   PROP_USER_TIME,
@@ -183,6 +194,18 @@ enum
 
   LAST_SIGNAL
 };
+
+typedef enum
+{
+    ZONE_TOP =      1 << 0,
+    ZONE_RIGHT =    1 << 1,
+    ZONE_BOTTOM =   1 << 2,
+    ZONE_LEFT =     1 << 3,
+    ZONE_ULC =      ZONE_TOP | ZONE_LEFT,
+    ZONE_LLC =      ZONE_BOTTOM | ZONE_LEFT,
+    ZONE_URC =      ZONE_TOP | ZONE_RIGHT,
+    ZONE_LRC =      ZONE_BOTTOM | ZONE_RIGHT
+} TileZone;
 
 static guint window_signals[LAST_SIGNAL] = { 0 };
 
@@ -232,6 +255,8 @@ meta_window_finalize (GObject *object)
   g_free (window->gtk_window_object_path);
   g_free (window->gtk_app_menu_object_path);
   g_free (window->gtk_menubar_object_path);
+  
+  G_OBJECT_CLASS (meta_window_parent_class)->finalize (object);
 }
 
 static void
@@ -264,6 +289,9 @@ meta_window_get_property(GObject         *object,
       break;
     case PROP_MAXIMIZED_VERTICALLY:
       g_value_set_boolean (value, win->maximized_vertically);
+      break;
+    case PROP_TILE_TYPE:
+      g_value_set_int (value, win->tile_type);
       break;
     case PROP_MINIMIZED:
       g_value_set_boolean (value, win->minimized);
@@ -397,6 +425,17 @@ meta_window_class_init (MetaWindowClass *klass)
                                                          "Whether window is maximized vertically",
                                                          FALSE,
                                                          G_PARAM_READABLE));
+
+  g_object_class_install_property (object_class,
+                                   PROP_TILE_TYPE,
+                                   g_param_spec_int     ("tile-type",
+                                                         "Window is tiled or snapped",
+                                                         "Whether window is tiled or snapped",
+                                                         META_WINDOW_TILE_TYPE_NONE,
+                                                         META_WINDOW_TILE_TYPE_SNAPPED,
+                                                         META_WINDOW_TILE_TYPE_NONE,
+                                                         G_PARAM_READABLE));
+
   g_object_class_install_property (object_class,
                                    PROP_MINIMIZED,
                                    g_param_spec_boolean ("minimized",
@@ -559,6 +598,7 @@ meta_window_class_init (MetaWindowClass *klass)
                   G_STRUCT_OFFSET (MetaWindowClass, unmanaged),
                   NULL, NULL, NULL,
                   G_TYPE_NONE, 0);
+
 }
 
 static void
@@ -1023,6 +1063,7 @@ meta_window_new_with_attrs (MetaDisplay       *display,
   /* And this is our unmaximized size */
   window->saved_rect = window->rect;
   window->user_rect = window->rect;
+  window->snapped_rect = window->rect;
 
   window->depth = attrs->depth;
   window->xvisual = attrs->visual;
@@ -1043,9 +1084,18 @@ meta_window_new_with_attrs (MetaDisplay       *display,
 
   window->maximized_horizontally = FALSE;
   window->maximized_vertically = FALSE;
+  window->tile_type = META_WINDOW_TILE_TYPE_NONE;
+  window->snap_queued = FALSE;
+  window->current_proximity_zone = 0;
+  window->mouse_on_edge = FALSE;
+  window->resizing_tile_type = META_WINDOW_TILE_TYPE_NONE;
+  window->custom_snap_size = FALSE;
+  window->zone_queued = ZONE_NONE;
   window->maximize_horizontally_after_placement = FALSE;
   window->maximize_vertically_after_placement = FALSE;
   window->minimize_after_placement = FALSE;
+  window->tile_after_placement = FALSE;
+  window->move_after_placement = FALSE;
   window->fullscreen = FALSE;
   window->fullscreen_after_placement = FALSE;
   window->fullscreen_monitors[0] = -1;
@@ -1055,6 +1105,9 @@ meta_window_new_with_attrs (MetaDisplay       *display,
   window->on_all_workspaces = FALSE;
   window->on_all_workspaces_requested = FALSE;
   window->tile_mode = META_TILE_NONE;
+  window->last_tile_mode = META_TILE_NONE;
+  window->resize_tile_mode = META_TILE_NONE;
+  window->maybe_retile_maximize = FALSE;
   window->tile_monitor_number = -1;
   window->shaded = FALSE;
   window->initially_iconic = FALSE;
@@ -1754,7 +1807,8 @@ meta_window_unmanage (MetaWindow  *window,
       g_object_notify (G_OBJECT (window->display), "focus-window");
     }
 
-  if (window->maximized_horizontally || window->maximized_vertically)
+  if (window->maximized_horizontally || window->maximized_vertically ||
+      window->tile_type != META_WINDOW_TILE_TYPE_NONE)
     unmaximize_window_before_freeing (window);
 
   /* The XReparentWindow call in meta_window_destroy_frame() moves the
@@ -1954,6 +2008,7 @@ meta_window_update_on_all_workspaces (MetaWindow *window)
         }
       meta_window_set_current_workspace_hint (window);
     }
+    meta_screen_update_snapped_windows (window->screen);
 }
 
 static void
@@ -1991,7 +2046,7 @@ static void
 set_net_wm_state (MetaWindow *window)
 {
   int i;
-  unsigned long data[13];
+  unsigned long data[14];
 
   i = 0;
   if (window->shaded)
@@ -2022,6 +2077,11 @@ set_net_wm_state (MetaWindow *window)
   if (window->maximized_vertically)
     {
       data[i] = window->display->atom__NET_WM_STATE_MAXIMIZED_VERT;
+      ++i;
+    }
+  if (window->tile_type != META_WINDOW_TILE_TYPE_NONE)
+    {
+      data[i] = window->display->atom__NET_WM_STATE_TILED;
       ++i;
     }
   if (window->fullscreen)
@@ -2085,6 +2145,27 @@ set_net_wm_state (MetaWindow *window)
                        (guchar*) data, 4);
       meta_error_trap_pop (window->display);
     }
+
+  if (window->tile_type != META_WINDOW_TILE_TYPE_NONE)
+  {
+    MetaRectangle rect;
+    meta_window_get_outer_rect (window, &rect);
+    data[0] = (unsigned long) window->tile_mode;
+    data[1] = (unsigned long) window->tile_type;
+    data[2] = (unsigned long) rect.x;
+    data[3] = (unsigned long) rect.y;
+    data[4] = (unsigned long) rect.width;
+    data[5] = (unsigned long) rect.height;
+    data[6] = (unsigned long) window->tile_monitor_number;
+    data[7] = (unsigned long) window->custom_snap_size ? 1 : 0;
+
+    meta_error_trap_push (window->display);
+    XChangeProperty (window->display->xdisplay, window->xwindow,
+                     window->display->atom__NET_WM_WINDOW_TILE_INFO,
+                     XA_CARDINAL,
+                     32, PropModeReplace, (guchar*) data, 8);
+    meta_error_trap_pop (window->display);
+  }
 }
 
 LOCAL_SYMBOL gboolean
@@ -2371,7 +2452,7 @@ idle_calc_showing (gpointer data)
       tmp = tmp->next;
     }
 
-  if (meta_prefs_get_focus_mode () != G_DESKTOP_FOCUS_MODE_CLICK)
+  if (meta_prefs_get_focus_mode () != C_DESKTOP_FOCUS_MODE_CLICK)
     {
       /* When display->mouse_mode is false, we want to ignore
        * EnterNotify events unless they come from mouse motion.  To do
@@ -2711,7 +2792,7 @@ window_state_on_map (MetaWindow *window,
    * approximation to enforce so we do that.
    */
   if (*takes_focus &&
-      meta_prefs_get_focus_new_windows () == G_DESKTOP_FOCUS_NEW_WINDOWS_STRICT &&
+      meta_prefs_get_focus_new_windows () == C_DESKTOP_FOCUS_NEW_WINDOWS_STRICT &&
       !window->display->allow_terminal_deactivation &&
       __window_is_terminal (window->display->focus_window) &&
       !meta_window_is_ancestor_of_transient (window->display->focus_window,
@@ -3048,7 +3129,7 @@ meta_window_show (MetaWindow *window)
        * that new window below a lot of other windows.
        */
       if (overlap ||
-          (meta_prefs_get_focus_mode () == G_DESKTOP_FOCUS_MODE_CLICK &&
+          (meta_prefs_get_focus_mode () == C_DESKTOP_FOCUS_MODE_CLICK &&
            meta_prefs_get_raise_on_click ()))
         meta_window_stack_just_below (window, focus_window);
 
@@ -3155,6 +3236,14 @@ meta_window_show (MetaWindow *window)
           timestamp = meta_display_get_current_time_roundtrip (window->display);
 
           meta_window_focus (window, timestamp);
+
+          if (window->move_after_placement)
+            {
+              timestamp = meta_display_get_current_time_roundtrip (window->display);
+              meta_window_begin_grab_op(window, META_GRAB_OP_KEYBOARD_MOVING,
+                                        FALSE, timestamp);
+              window->move_after_placement = FALSE;
+            }
         }
       else
         {
@@ -3358,6 +3447,8 @@ meta_window_minimize (MetaWindow  *window)
         }
       g_object_notify (G_OBJECT (window), "minimized");
     }
+
+  meta_screen_update_snapped_windows (window->screen);
 }
 
 void
@@ -3376,6 +3467,8 @@ meta_window_unminimize (MetaWindow  *window)
                                      NULL);
       g_object_notify (G_OBJECT (window), "minimized");
     }
+
+  meta_screen_update_snapped_windows (window->screen);
 }
 
 static void
@@ -3414,7 +3507,7 @@ ensure_size_hints_satisfied (MetaRectangle    *rect,
 static void
 meta_window_save_rect (MetaWindow *window)
 {
-  if (!(META_WINDOW_MAXIMIZED (window) || META_WINDOW_TILED_SIDE_BY_SIDE (window) || window->fullscreen))
+  if (!(META_WINDOW_MAXIMIZED (window) || META_WINDOW_TILED_OR_SNAPPED (window) || window->fullscreen))
     {
       /* save size/pos as appropriate args for move_resize */
       if (!window->maximized_horizontally)
@@ -3456,7 +3549,7 @@ force_save_user_window_placement (MetaWindow *window)
 static void
 save_user_window_placement (MetaWindow *window)
 {
-  if (!(META_WINDOW_MAXIMIZED (window) || META_WINDOW_TILED_SIDE_BY_SIDE (window) || window->fullscreen))
+  if (!(META_WINDOW_MAXIMIZED (window) || META_WINDOW_TILED_OR_SNAPPED (window) || window->fullscreen))
     {
       MetaRectangle user_rect;
 
@@ -3486,7 +3579,7 @@ meta_window_maximize_internal (MetaWindow        *window,
   maximize_vertically   = directions & META_MAXIMIZE_VERTICAL;
   g_assert (maximize_horizontally || maximize_vertically);
 
-  meta_topic (META_DEBUG_WINDOW_OPS,
+meta_topic (META_DEBUG_WINDOW_OPS,
               "Maximizing %s%s\n",
               window->desc,
               maximize_horizontally && maximize_vertically ? "" :
@@ -3497,6 +3590,11 @@ meta_window_maximize_internal (MetaWindow        *window,
     window->saved_rect = *saved_rect;
   else
     meta_window_save_rect (window);
+
+  meta_window_set_tile_type (window, META_WINDOW_TILE_TYPE_NONE);
+  window->tile_mode = META_TILE_NONE;
+  notify_tile_type (window);
+  normalize_tile_state (window);
 
   if (maximize_horizontally && maximize_vertically)
     window->saved_maximize = TRUE;
@@ -3560,7 +3658,8 @@ meta_window_maximize (MetaWindow        *window,
 	  return;
 	}
 
-      if (window->tile_mode != META_TILE_NONE)
+      if (window->tile_mode != META_TILE_NONE ||
+          window->last_tile_mode != META_TILE_NONE)
         {
           saved_rect = &window->saved_rect;
 
@@ -3593,6 +3692,8 @@ meta_window_maximize (MetaWindow        *window,
           meta_window_queue(window, META_QUEUE_MOVE_RESIZE);
         }
     }
+    meta_screen_tile_preview_hide (window->screen);
+    normalize_tile_state (window);
 }
 
 /**
@@ -3622,6 +3723,39 @@ meta_window_is_fullscreen (MetaWindow *window)
 }
 
 /**
+* meta_window_is_monitor_sized:
+ *
+ * Return value: %TRUE if the window is occupies an entire monitor or
+ *               the whole screen.
+ */
+gboolean
+meta_window_is_monitor_sized (MetaWindow *window)
+{
+  if (window->fullscreen)
+    return TRUE;
+
+  if (window->override_redirect)
+    {
+      MetaRectangle window_rect, monitor_rect;
+      int screen_width, screen_height;
+
+      meta_screen_get_size (window->screen, &screen_width, &screen_height);
+      meta_window_get_outer_rect (window, &window_rect);
+
+      if (window_rect.x == 0 && window_rect.y == 0 &&
+          window_rect.width == screen_width && window_rect.height == screen_height)
+        return TRUE;
+
+      meta_screen_get_monitor_geometry (window->screen, window->monitor->number, &monitor_rect);
+
+      if (meta_rectangle_equal (&window_rect, &monitor_rect))
+        return TRUE;
+    }
+
+  return FALSE;
+}
+
+/**
  * meta_window_is_on_primary_monitor:
  *
  * Return value: %TRUE if the window is on the primary monitor
@@ -3632,38 +3766,92 @@ meta_window_is_on_primary_monitor (MetaWindow *window)
   return window->monitor->is_primary;
 }
 
-LOCAL_SYMBOL void
-meta_window_tile (MetaWindow *window)
+/**
+ * meta_window_requested_bypass_compositor:
+ *
+ * Return value: %TRUE if the window requested to bypass the compositor
+ */
+gboolean
+meta_window_requested_bypass_compositor (MetaWindow *window)
 {
-  MetaMaximizeFlags directions;
+  return window->bypass_compositor;
+}
 
+/**
+ * meta_window_requested_dont_bypass_compositor:
+ *
+ * Return value: %TRUE if the window requested to opt out of unredirecting
+ */
+gboolean
+meta_window_requested_dont_bypass_compositor (MetaWindow *window)
+{
+  return window->dont_bypass_compositor;
+}
+
+static void
+notify_tile_type (MetaWindow *window)
+{
+  g_object_freeze_notify (G_OBJECT (window));
+  g_object_notify (G_OBJECT (window), "tile-type");
+  g_object_thaw_notify (G_OBJECT (window));
+}
+
+static void
+normalize_tile_state (MetaWindow *window)
+{
+  window->snap_queued = FALSE;
+  window->resize_tile_mode = META_TILE_NONE;
+  window->resizing_tile_type = META_WINDOW_TILE_TYPE_NONE;
+  meta_screen_update_snapped_windows (window->screen);
+}
+
+LOCAL_SYMBOL void
+meta_window_tile (MetaWindow *window, gboolean force)
+{
 /* Don't do anything if no tiling is requested or we're already tiled */
-  if (window->tile_mode == META_TILE_NONE || window->maximized_vertically ||
-                                             window->maximized_horizontally )
+  if (window->tile_mode == META_TILE_NONE || (META_WINDOW_TILED_OR_SNAPPED (window) && !force))
     return;
 
-  if (window->tile_mode == META_TILE_MAXIMIZED)
-    directions = META_MAXIMIZE_VERTICAL | META_MAXIMIZE_HORIZONTAL;
-  else
-    directions = META_MAXIMIZE_VERTICAL;
+  if (window->last_tile_mode == META_TILE_NONE &&
+      window->resizing_tile_type == META_WINDOW_TILE_TYPE_NONE &&
+      !META_WINDOW_MAXIMIZED (window))
+  {
+     meta_window_save_rect (window);
+  }
 
-  meta_window_maximize_internal (window, directions, NULL);
+  window->maximized_horizontally = FALSE;
+  window->maximized_vertically = FALSE;
+
+  if (window->tile_mode != META_TILE_NONE) {
+      if (window->snap_queued || window->resizing_tile_type == META_WINDOW_TILE_TYPE_SNAPPED) {
+        meta_window_set_tile_type (window, META_WINDOW_TILE_TYPE_SNAPPED);
+      } else {
+        meta_window_set_tile_type (window, META_WINDOW_TILE_TYPE_TILED);
+      }
+  } else {
+      meta_window_set_tile_type (window, META_WINDOW_TILE_TYPE_NONE);
+  }
+
+  recalc_window_features (window);
+  set_net_wm_state (window);
+
+  normalize_tile_state (window);
+
   meta_screen_tile_preview_update (window->screen, FALSE);
 
   if (window->display->compositor)
     {
       MetaRectangle old_rect;
       MetaRectangle new_rect;
-
       meta_window_get_outer_rect (window, &old_rect);
 
       meta_window_move_resize_now (window);
 
       meta_window_get_outer_rect (window, &new_rect);
-      meta_compositor_maximize_window (window->display->compositor,
-                                       window,
-                                       &old_rect,
-                                       &new_rect);
+      meta_compositor_tile_window (window->display->compositor,
+                                   window,
+                                   &old_rect,
+                                   &new_rect);
 
       if (window->frame)
         meta_ui_queue_frame_draw (window->screen->ui,
@@ -3675,6 +3863,11 @@ meta_window_tile (MetaWindow *window)
        */
       meta_window_queue (window, META_QUEUE_MOVE_RESIZE);
     }
+
+  meta_screen_tile_preview_hide (window->screen);
+  meta_window_get_outer_rect (window, &window->snapped_rect);
+
+  notify_tile_type (window);
 }
 
 static gboolean
@@ -3711,6 +3904,59 @@ meta_window_can_tile_side_by_side (MetaWindow *window)
          tile_area.height >= window->size_hints.min_height;
 }
 
+LOCAL_SYMBOL gboolean
+meta_window_can_tile_top_bottom (MetaWindow *window)
+{
+  const MetaMonitorInfo *monitor;
+  MetaRectangle tile_area;
+  MetaFrameBorders borders;
+
+  if (!meta_window_can_tile_maximized (window))
+    return FALSE;
+
+  monitor = meta_screen_get_current_monitor (window->screen);
+  meta_window_get_work_area_for_monitor (window, monitor->number, &tile_area);
+
+  /* Do not allow tiling in portrait orientation */
+  if (tile_area.height > tile_area.width)
+    return FALSE;
+
+  tile_area.height /= 2;
+
+  meta_frame_calc_borders (window->frame, &borders);
+
+  tile_area.width  -= (borders.visible.left + borders.visible.right);
+  tile_area.height -= (borders.visible.top + borders.visible.bottom);
+
+  return tile_area.width >= window->size_hints.min_width &&
+         tile_area.height >= window->size_hints.min_height;
+}
+
+LOCAL_SYMBOL gboolean
+meta_window_can_tile_corner (MetaWindow *window)
+{
+  const MetaMonitorInfo *monitor;
+  MetaRectangle tile_area;
+  MetaFrameBorders borders;
+
+  if (!meta_window_can_tile_maximized (window))
+    return FALSE;
+
+  monitor = meta_screen_get_current_monitor (window->screen);
+  meta_window_get_work_area_for_monitor (window, monitor->number, &tile_area);
+
+  tile_area.width /= 2;
+  tile_area.height /= 2;
+
+  meta_frame_calc_borders (window->frame, &borders);
+
+  tile_area.width  -= (borders.visible.left + borders.visible.right);
+  tile_area.height -= (borders.visible.top + borders.visible.bottom);
+
+  return tile_area.width >= window->size_hints.min_width &&
+         tile_area.height >= window->size_hints.min_height;
+}
+
 static void
 unmaximize_window_before_freeing (MetaWindow        *window)
 {
@@ -3720,6 +3966,12 @@ unmaximize_window_before_freeing (MetaWindow        *window)
 
   window->maximized_horizontally = FALSE;
   window->maximized_vertically = FALSE;
+  window->custom_snap_size = FALSE;
+  if (window->tile_type != META_WINDOW_TILE_TYPE_NONE) {
+    meta_window_set_tile_type (window, META_WINDOW_TILE_TYPE_NONE);
+    meta_screen_update_snapped_windows (window->screen);
+    notify_tile_type (window);
+  }
 
   if (window->withdrawn)                /* See bug #137185 */
     {
@@ -3750,13 +4002,11 @@ meta_window_unmaximize_internal (MetaWindow        *window,
                                  int                gravity)
 {
   gboolean unmaximize_horizontally, unmaximize_vertically;
-
   g_return_if_fail (!window->override_redirect);
 
   /* At least one of the two directions ought to be set */
   unmaximize_horizontally = directions & META_MAXIMIZE_HORIZONTAL;
   unmaximize_vertically   = directions & META_MAXIMIZE_VERTICAL;
-  g_assert (unmaximize_horizontally || unmaximize_vertically);
 
   if (unmaximize_horizontally && unmaximize_vertically)
     window->saved_maximize = FALSE;
@@ -3765,7 +4015,9 @@ meta_window_unmaximize_internal (MetaWindow        *window,
    * given direction(s).
    */
   if ((unmaximize_horizontally && window->maximized_horizontally) ||
-      (unmaximize_vertically   && window->maximized_vertically))
+      (unmaximize_vertically   && window->maximized_vertically) ||
+      window->tile_type != META_WINDOW_TILE_TYPE_NONE ||
+      window->tile_mode == META_TILE_NONE)
     {
       MetaRectangle target_rect;
       MetaRectangle work_area;
@@ -3783,13 +4035,6 @@ meta_window_unmaximize_internal (MetaWindow        *window,
         window->maximized_horizontally && !unmaximize_horizontally;
       window->maximized_vertically =
         window->maximized_vertically   && !unmaximize_vertically;
-
-      /* Reset the tile mode for maximized tiled windows for consistency
-       * with "normal" maximized windows, but keep other tile modes,
-       * as side-by-side tiled windows may snap back.
-       */
-      if (window->tile_mode == META_TILE_MAXIMIZED)
-        window->tile_mode = META_TILE_NONE;
 
       /* Unmaximize to the saved_rect position in the direction(s)
        * being unmaximized.
@@ -3812,7 +4057,7 @@ meta_window_unmaximize_internal (MetaWindow        *window,
        */
       ensure_size_hints_satisfied (&target_rect, &window->size_hints);
 
-      if (window->display->compositor)
+      if (window->display->compositor && window->resizing_tile_type == META_WINDOW_TILE_TYPE_NONE)
         {
           MetaRectangle old_rect, new_rect;
 
@@ -3860,6 +4105,15 @@ meta_window_unmaximize_internal (MetaWindow        *window,
           window->display->grab_anchor_window_pos = window->user_rect;
         }
 
+      if (window->tile_type != META_WINDOW_TILE_TYPE_NONE) {
+          meta_window_set_tile_type (window, META_WINDOW_TILE_TYPE_NONE);
+          notify_tile_type (window);
+      }
+      if (window->resizing_tile_type == META_WINDOW_TILE_TYPE_NONE)
+          window->custom_snap_size = FALSE;
+
+      meta_screen_update_snapped_windows (window->screen);
+
       recalc_window_features (window);
       set_net_wm_state (window);
     }
@@ -3879,7 +4133,7 @@ meta_window_unmaximize (MetaWindow        *window,
       window->tile_mode == META_TILE_RIGHT)
     {
       window->maximized_horizontally = FALSE;
-      meta_window_tile (window);
+      meta_window_tile (window, FALSE);
       return;
     }
 
@@ -4439,6 +4693,11 @@ maybe_move_attached_dialog (MetaWindow *window,
 int
 meta_window_get_monitor (MetaWindow *window)
 {
+  g_return_val_if_fail (META_IS_WINDOW (window), -1);
+
+  if (window->monitor == NULL)
+    return -1;
+
   return window->monitor->number;
 }
 
@@ -5484,6 +5743,42 @@ meta_window_get_outer_rect (const MetaWindow *window,
     }
   else
     *rect = window->rect;
+}
+
+MetaSide
+meta_window_get_tile_side (MetaWindow *window)
+{
+    MetaSide side;
+    switch (window->tile_mode) {
+        case META_TILE_LEFT:
+            side = META_SIDE_LEFT;
+            break;
+        case META_TILE_ULC:
+            side = (META_SIDE_LEFT | META_SIDE_TOP);
+            break;
+        case META_TILE_LLC:
+            side = (META_SIDE_LEFT | META_SIDE_BOTTOM);
+            break;
+        case META_TILE_RIGHT:
+            side = META_SIDE_RIGHT;
+            break;
+        case META_TILE_URC:
+            side = (META_SIDE_RIGHT | META_SIDE_TOP);
+            break;
+        case META_TILE_LRC:
+            side = (META_SIDE_RIGHT | META_SIDE_BOTTOM);
+            break;
+        case META_TILE_TOP:
+            side = META_SIDE_TOP;
+            break;
+        case META_TILE_BOTTOM:
+            side = META_SIDE_BOTTOM;
+            break;
+        default:
+            side = META_SIDE_TOP;
+            break;
+    }
+    return side;
 }
 
 const char*
@@ -6962,7 +7257,7 @@ meta_window_notify_focus (MetaWindow *window,
            *
            * There is dicussion in bugs 102209, 115072, and 461577
            */
-          if (meta_prefs_get_focus_mode () == G_DESKTOP_FOCUS_MODE_CLICK ||
+          if (meta_prefs_get_focus_mode () == C_DESKTOP_FOCUS_MODE_CLICK ||
               !meta_prefs_get_raise_on_click())
             meta_display_ungrab_focus_window_button (window->display, window);
 
@@ -7015,7 +7310,7 @@ meta_window_notify_focus (MetaWindow *window,
           meta_window_update_layer (window);
 
           /* Re-grab for click to focus and raise-on-click, if necessary */
-          if (meta_prefs_get_focus_mode () == G_DESKTOP_FOCUS_MODE_CLICK ||
+          if (meta_prefs_get_focus_mode () == C_DESKTOP_FOCUS_MODE_CLICK ||
               !meta_prefs_get_raise_on_click ())
             meta_display_grab_focus_window_button (window->display, window);
        }
@@ -8525,14 +8820,14 @@ check_moveresize_frequency (MetaWindow *window,
 	  double elapsed =
 	    time_diff (&current_time, &window->sync_request_time);
 
-	  if (elapsed < 1000.0)
+	  if (elapsed < 100.0)
 	    {
 	      /* We want to be sure that the timeout happens at
 	       * a time where elapsed will definitely be
 	       * greater than 1000, so we can disable sync
 	       */
 	      if (remaining)
-		*remaining = 1000.0 - elapsed + 100;
+		*remaining = 100.0 - elapsed + 10;
 
 	      return FALSE;
 	    }
@@ -8588,22 +8883,101 @@ update_move_timeout (gpointer data)
 
   update_move (window,
                window->display->grab_last_user_action_was_snap,
+               window->snap_queued,
                window->display->grab_latest_motion_x,
                window->display->grab_latest_motion_y);
 
   return FALSE;
 }
 
+guint
+meta_window_get_current_zone (MetaWindow   *window,
+                  MetaRectangle monitor,
+                  MetaRectangle work_area,
+                  int           x,
+                  int           y,
+                  int           zone_threshold)
+{
+    TileZone edge_zone = 0;
+    guint zone = ZONE_NONE;
+    /* First, establish edges, with top and bottom first,
+       so they take priority in the corners                  */
+    if (y >= monitor.y && y <= work_area.y + zone_threshold)
+        edge_zone |= ZONE_TOP;
+    if (y >= (work_area.y + work_area.height - zone_threshold) &&
+             y < (monitor.y + monitor.height))
+        edge_zone |= ZONE_BOTTOM;
+    if (x >= monitor.x && x < (work_area.x + zone_threshold))
+        edge_zone |= ZONE_LEFT;
+    if (x >= (work_area.x + work_area.width - zone_threshold) &&
+             x < (monitor.x + monitor.width))
+        edge_zone |= ZONE_RIGHT;
+
+    /* Now for each edge zone, we can figure out the specific subzone we're in */
+
+    /* split the screen into a 4 x 4 grid.. the middle 2 boxes along each edge
+       are considered a single zone though, so effectively we'll have 3 zones per
+       edge */
+
+    switch (edge_zone) {
+        case ZONE_ULC:
+            if (meta_window_can_tile_corner (window))
+                zone = ZONE_4;
+            break;
+        case ZONE_LLC:
+            if (meta_window_can_tile_corner (window))
+                zone = ZONE_7;
+            break;
+        case ZONE_URC:
+            if (meta_window_can_tile_corner (window))
+                zone = ZONE_5;
+            break;
+        case ZONE_LRC:
+            if (meta_window_can_tile_corner (window))
+                zone = ZONE_6;
+            break;
+        case ZONE_TOP:
+            if (meta_window_can_tile_top_bottom (window))
+                zone = ZONE_0;
+            break;
+        case ZONE_BOTTOM:
+            if (meta_window_can_tile_top_bottom (window))
+                zone = ZONE_1;
+            break;
+        case ZONE_LEFT:
+            if (meta_window_can_tile_side_by_side (window))
+                zone = ZONE_2;
+            break;
+        case ZONE_RIGHT:
+            if (meta_window_can_tile_side_by_side (window))
+                zone = ZONE_3;
+            break;
+        default:
+            zone = ZONE_NONE;
+            break;
+    }
+    return zone;
+}
+
+static unsigned int
+get_mask_from_snap_keysym (MetaWindow *window)
+{
+    unsigned int *pref = meta_prefs_get_snap_modifier ();
+
+    return XkbKeysymToModifiers(window->display->xdisplay, pref[0]);
+}
+
 static void
 update_move (MetaWindow  *window,
-             gboolean     snap,
+             gboolean     legacy_snap,
+             gboolean     snap_mode,
              int          x,
              int          y)
 {
   int dx, dy;
   int new_x, new_y;
   MetaRectangle old;
-  int shake_threshold;
+  int breakloose_threshold;
   MetaDisplay *display = window->display;
 
   display->grab_latest_motion_x = x;
@@ -8623,6 +8997,11 @@ update_move (MetaWindow  *window,
                 display->grab_anchor_window_pos.y,
                 dx, dy);
 
+  if (snap_mode)
+    window->snap_queued = TRUE;
+  else
+    window->snap_queued = FALSE;
+
   /* Don't bother doing anything if no move has been specified.  (This
    * happens often, even in keyboard moving, due to the warping of the
    * pointer.
@@ -8634,18 +9013,15 @@ update_move (MetaWindow  *window,
    * for the zones at the sides of the monitor where trigger tiling
    * because it's about the right size
    */
-  shake_threshold = meta_prefs_get_edge_tile_threshold ();
 
-  if (snap)
+  if (legacy_snap && meta_prefs_get_legacy_snap ())
     {
       /* We don't want to tile while snapping. Also, clear any previous tile
          request. */
       window->tile_mode = META_TILE_NONE;
       window->tile_monitor_number = -1;
     }
-  else if (meta_prefs_get_edge_tiling () &&
-           !META_WINDOW_MAXIMIZED (window) &&
-           !META_WINDOW_TILED_SIDE_BY_SIDE (window))
+  else if (meta_prefs_get_edge_tiling () && !META_WINDOW_TILED_OR_SNAPPED (window))
     {
       const MetaMonitorInfo *monitor;
       MetaRectangle work_area;
@@ -8671,18 +9047,51 @@ update_move (MetaWindow  *window,
       /* Check if the cursor is in a position which triggers tiling
        * and set tile_mode accordingly.
        */
-      if (meta_window_can_tile_side_by_side (window) &&
-          x >= monitor->rect.x && x < (work_area.x + shake_threshold))
-        window->tile_mode = META_TILE_LEFT;
-      else if (meta_window_can_tile_side_by_side (window) &&
-               x >= work_area.x + work_area.width - shake_threshold &&
-               x < (monitor->rect.x + monitor->rect.width))
-        window->tile_mode = META_TILE_RIGHT;
-      else if (meta_window_can_tile_maximized (window) &&
-               y >= monitor->rect.y && y <= work_area.y)
-        window->tile_mode = META_TILE_MAXIMIZED;
-      else
-        window->tile_mode = META_TILE_NONE;
+
+      window->current_proximity_zone = meta_window_get_current_zone (window,
+                                                                     monitor->rect,
+                                                                     work_area,
+                                                                     x,
+                                                                     y,
+                                                                     meta_prefs_get_tile_hud_threshold ());
+
+      guint edge_zone = meta_window_get_current_zone (window,
+                                                      monitor->rect,
+                                                      work_area,
+                                                      x,
+                                                      y,
+                                                      HUD_WIDTH);
+
+      switch (edge_zone) {
+        case ZONE_0:
+            window->tile_mode = window->maybe_retile_maximize ? META_TILE_MAXIMIZE :
+                (meta_prefs_get_tile_maximize() ? META_TILE_MAXIMIZE : META_TILE_TOP);
+            break;
+        case ZONE_1:
+            window->tile_mode = META_TILE_BOTTOM;
+            break;
+        case ZONE_2:
+            window->tile_mode = META_TILE_LEFT;
+            break;
+        case ZONE_3:
+            window->tile_mode = META_TILE_RIGHT;
+            break;
+        case ZONE_4:
+            window->tile_mode = META_TILE_ULC;
+            break;
+        case ZONE_5:
+            window->tile_mode = META_TILE_URC;
+            break;
+        case ZONE_6:
+            window->tile_mode = META_TILE_LRC;
+            break;
+        case ZONE_7:
+            window->tile_mode = META_TILE_LLC;
+            break;
+        default:
+            window->tile_mode = META_TILE_NONE;
+            break;
+      }
 
       if (window->tile_mode != META_TILE_NONE)
         window->tile_monitor_number = monitor->number;
@@ -8692,9 +9101,14 @@ update_move (MetaWindow  *window,
    * the threshold in the Y direction. Tiled windows can also be pulled
    * loose via X motion.
    */
+  breakloose_threshold = meta_prefs_get_resize_threshold () * 2;
 
-  if ((META_WINDOW_MAXIMIZED (window) && ABS (dy) >= shake_threshold) ||
-      (META_WINDOW_TILED_SIDE_BY_SIDE (window) && (MAX (ABS (dx), ABS (dy)) >= shake_threshold)))
+  if (window->tile_type == META_WINDOW_TILE_TYPE_SNAPPED)
+    breakloose_threshold *= 2;
+  if ((META_WINDOW_MAXIMIZED (window) && ABS (dy) >= breakloose_threshold) ||
+      (META_WINDOW_MAXIMIZED_VERTICALLY (window) && ABS (dy) >= breakloose_threshold) ||
+      (META_WINDOW_MAXIMIZED_HORIZONTALLY (window) && ABS (dx) >= breakloose_threshold) ||
+      (META_WINDOW_TILED_OR_SNAPPED (window) && (MAX (ABS (dx), ABS (dy)) >= breakloose_threshold)))
     {
       double prop;
 
@@ -8703,6 +9117,8 @@ update_move (MetaWindow  *window,
        * is enabled, as top edge tiling can be used in that case
        */
       window->shaken_loose = !meta_prefs_get_edge_tiling ();
+      if (window->saved_maximize)
+        window->maybe_retile_maximize = TRUE;
       window->tile_mode = META_TILE_NONE;
 
       /* move the unmaximized window to the cursor */
@@ -8752,7 +9168,7 @@ update_move (MetaWindow  *window,
           if (x >= work_area.x &&
               x < (work_area.x + work_area.width) &&
               y >= work_area.y &&
-              y < (work_area.y + shake_threshold))
+              y < (work_area.y + breakloose_threshold))
             {
               /* move the saved rect if window will become maximized on an
                * other monitor so user isn't surprised on a later unmaximize
@@ -8790,17 +9206,40 @@ update_move (MetaWindow  *window,
         }
     }
 
+    window->mouse_on_edge = meta_window_mouse_on_edge (window, x, y);
+
+    if (meta_prefs_get_edge_tiling ()) {
+        if (window->current_proximity_zone != ZONE_NONE && !window->mouse_on_edge)
+            meta_screen_tile_hud_update (window->screen, TRUE, FALSE);
+        else
+            meta_screen_tile_hud_update (window->screen, TRUE, TRUE);
+    }
+
+    MetaRectangle min_size, max_size, target_size;
+    gboolean hminbad = FALSE;
+    gboolean vminbad = FALSE;
+    if (window->tile_mode != META_TILE_NONE) {
+        meta_window_get_size_limits (window, NULL, FALSE, &min_size, &max_size);
+        meta_window_get_current_tile_area (window, &target_size);
+        hminbad = target_size.width < min_size.width;
+        vminbad = target_size.height < min_size.height;
+    }
   /* Delay showing the tile preview slightly to make it more unlikely to
    * trigger it unwittingly, e.g. when shaking loose the window or moving
    * it to another monitor.
    */
-  meta_screen_tile_preview_update (window->screen,
-                                   window->tile_mode != META_TILE_NONE);
+    
+    if (!hminbad && !vminbad)
+        meta_screen_tile_preview_update (window->screen,
+                                         window->tile_mode != META_TILE_NONE &&
+                                         !meta_screen_tile_preview_get_visible (window->screen));
+    else
+        meta_screen_tile_preview_hide (window->screen);
 
   meta_window_get_client_root_coords (window, &old);
 
   /* Don't allow movement in the maximized directions or while tiled */
-  if (window->maximized_horizontally || META_WINDOW_TILED_SIDE_BY_SIDE (window))
+  if (window->maximized_horizontally || META_WINDOW_TILED_OR_SNAPPED (window))
     new_x = old.x;
   if (window->maximized_vertically)
     new_y = old.y;
@@ -8812,7 +9251,7 @@ update_move (MetaWindow  *window,
                                         &new_x,
                                         &new_y,
                                         update_move_timeout,
-                                        snap,
+                                        legacy_snap && meta_prefs_get_legacy_snap (),
                                         FALSE);
 
   meta_window_move (window, TRUE, new_x, new_y);
@@ -8833,8 +9272,7 @@ check_resize_unmaximize(MetaWindow *window,
   int threshold;
   MetaMaximizeFlags new_unmaximize;
 
-  threshold = meta_prefs_get_edge_detach_threshold ();
-
+  threshold = meta_prefs_get_resize_threshold ();
   new_unmaximize = 0;
 
   if (window->maximized_horizontally ||
@@ -8873,7 +9311,7 @@ check_resize_unmaximize(MetaWindow *window,
         new_unmaximize |= META_MAXIMIZE_HORIZONTAL;
     }
 
-  if (window->maximized_vertically ||
+  if (window->maximized_vertically || window->tile_mode != META_TILE_NONE ||
       (window->display->grab_resize_unmaximize & META_MAXIMIZE_VERTICAL) != 0)
     {
       int y_amount;
@@ -8915,8 +9353,9 @@ check_resize_unmaximize(MetaWindow *window,
       if (window->maximized_horizontally ||
           (window->display->grab_resize_unmaximize & META_MAXIMIZE_HORIZONTAL) != 0)
         new_unmaximize |= META_MAXIMIZE_HORIZONTAL;
-      if (window->maximized_vertically ||
-          (window->display->grab_resize_unmaximize & META_MAXIMIZE_VERTICAL) != 0)
+      if ((window->tile_type == META_WINDOW_TILE_TYPE_NONE ||
+           window->resizing_tile_type == META_WINDOW_TILE_TYPE_NONE) &&
+           (window->maximized_vertically || (window->display->grab_resize_unmaximize & META_MAXIMIZE_VERTICAL) != 0))
         new_unmaximize |= META_MAXIMIZE_VERTICAL;
     }
 
@@ -8932,7 +9371,8 @@ update_resize_timeout (gpointer data)
                  window->display->grab_last_user_action_was_snap,
                  window->display->grab_latest_motion_x,
                  window->display->grab_latest_motion_y,
-                 TRUE);
+                 TRUE,
+                 FALSE);
   return FALSE;
 }
 
@@ -8940,7 +9380,8 @@ static void
 update_resize (MetaWindow *window,
                gboolean    snap,
                int x, int y,
-               gboolean force)
+               gboolean force,
+               gboolean done)
 {
   int dx, dy;
   int new_w, new_h;
@@ -9128,7 +9569,7 @@ update_resize (MetaWindow *window,
                                           snap,
                                           FALSE);
 
-  if (new_unmaximize == window->display->grab_resize_unmaximize)
+  if (new_unmaximize == window->display->grab_resize_unmaximize && window->tile_type == META_WINDOW_TILE_TYPE_NONE)
     {
       /* We don't need to update unless the specified width and height
        * are actually different from what we had before.
@@ -9140,14 +9581,20 @@ update_resize (MetaWindow *window,
     }
   else
     {
-      if ((new_unmaximize & ~window->display->grab_resize_unmaximize) != 0)
+      if ((new_unmaximize & ~window->display->grab_resize_unmaximize) != 0 || window->tile_type != META_WINDOW_TILE_TYPE_NONE)
         {
+          if (window->resizing_tile_type == META_WINDOW_TILE_TYPE_NONE)
+            window->resizing_tile_type = window->tile_type;
+          if (window->tile_mode != META_TILE_NONE) {
+            window->resize_tile_mode = window->tile_mode;
+          }
+
           meta_window_unmaximize_with_gravity (window,
                                                (new_unmaximize & ~window->display->grab_resize_unmaximize),
                                                new_w, new_h, gravity);
         }
 
-      if ((window->display->grab_resize_unmaximize & ~new_unmaximize))
+      if (window->resizing_tile_type == META_WINDOW_TILE_TYPE_NONE && (window->display->grab_resize_unmaximize & ~new_unmaximize))
         {
           MetaRectangle saved_rect = window->saved_rect;
           meta_window_maximize (window,
@@ -9157,8 +9604,17 @@ update_resize (MetaWindow *window,
     }
 
   window->display->grab_resize_unmaximize = new_unmaximize;
-
   /* Store the latest resize time, if we actually resized. */
+    if (done) {
+        if (window->resizing_tile_type != META_WINDOW_TILE_TYPE_NONE) {
+            window->snap_queued = window->resizing_tile_type == META_WINDOW_TILE_TYPE_SNAPPED;
+            window->tile_mode = window->resize_tile_mode;
+            window->custom_snap_size = TRUE;
+            meta_window_tile (window, TRUE);
+        }
+    }
+
+
   if (window->rect.width != old.width || window->rect.height != old.height)
     g_get_current_time (&window->display->grab_last_moveresize_time);
 }
@@ -9247,11 +9703,13 @@ update_tile_mode (MetaWindow *window)
     {
       case META_TILE_LEFT:
       case META_TILE_RIGHT:
-          if (!META_WINDOW_TILED_SIDE_BY_SIDE (window))
-              window->tile_mode = META_TILE_NONE;
-          break;
-      case META_TILE_MAXIMIZED:
-          if (!META_WINDOW_MAXIMIZED (window))
+      case META_TILE_ULC:
+      case META_TILE_LLC:
+      case META_TILE_URC:
+      case META_TILE_LRC:
+      case META_TILE_TOP:
+      case META_TILE_BOTTOM:
+          if (!META_WINDOW_TILED_OR_SNAPPED (window))
               window->tile_mode = META_TILE_NONE;
           break;
     }
@@ -9301,7 +9759,8 @@ meta_window_handle_mouse_grab_op_event (MetaWindow *window,
                          window->display->grab_last_user_action_was_snap,
                          window->display->grab_latest_motion_x,
                          window->display->grab_latest_motion_y,
-                         TRUE);
+                         TRUE,
+                         FALSE);
           break;
 
         default:
@@ -9325,11 +9784,23 @@ meta_window_handle_mouse_grab_op_event (MetaWindow *window,
         {
           if (meta_grab_op_is_moving (window->display->grab_op))
             {
-              if (window->tile_mode != META_TILE_NONE)
-                meta_window_tile (window);
+              if (window->tile_mode != META_TILE_NONE &&
+                  meta_window_mouse_on_edge (window,
+                                             event->xbutton.x_root,
+                                             event->xbutton.y_root)) {
+                  window->custom_snap_size = FALSE;
+                  if (window->tile_mode == META_TILE_MAXIMIZE)
+                    meta_window_maximize(window, META_MAXIMIZE_VERTICAL | META_MAXIMIZE_HORIZONTAL);
+                  else
+                    meta_window_tile (window, FALSE);
+              }
               else if (event->xbutton.root == window->screen->xroot)
-                update_move (window, event->xbutton.state & ShiftMask,
-                             event->xbutton.x_root, event->xbutton.y_root);
+                  update_move (window,
+                               event->xbutton.state & ShiftMask,
+                               event->xbutton.state & get_mask_from_snap_keysym (window),
+                               event->xbutton.x_root, event->xbutton.y_root);
+              if (meta_prefs_get_edge_tiling ())
+                  meta_screen_tile_hud_update (window->screen, FALSE, TRUE);
             }
           else if (meta_grab_op_is_resizing (window->display->grab_op))
             {
@@ -9338,9 +9809,10 @@ meta_window_handle_mouse_grab_op_event (MetaWindow *window,
                                event->xbutton.state & ShiftMask,
                                event->xbutton.x_root,
                                event->xbutton.y_root,
+                               TRUE,
                                TRUE);
-	      if (window->display->compositor)
-		meta_compositor_set_updates (window->display->compositor, window, TRUE);
+              if (window->display->compositor)
+                meta_compositor_set_updates (window->display->compositor, window, TRUE);
 
               /* If a tiled window has been dragged free with a
                * mouse resize without snapping back to the tiled
@@ -9349,10 +9821,11 @@ meta_window_handle_mouse_grab_op_event (MetaWindow *window,
                * would break the ability to snap back to the tiled
                * state, so we wait until mouse release.
                */
-              update_tile_mode (window);
+              if (window->tile_type == META_WINDOW_TILE_TYPE_NONE)
+                update_tile_mode (window);
             }
         }
-
+      window->maybe_retile_maximize = FALSE;
       meta_display_end_grab_op (window->display, event->xbutton.time);
       break;
 
@@ -9368,6 +9841,7 @@ meta_window_handle_mouse_grab_op_event (MetaWindow *window,
                                                 event))
                 update_move (window,
                              event->xmotion.state & ShiftMask,
+                             event->xmotion.state & get_mask_from_snap_keysym (window),
                              event->xmotion.x_root,
                              event->xmotion.y_root);
             }
@@ -9382,7 +9856,73 @@ meta_window_handle_mouse_grab_op_event (MetaWindow *window,
                                event->xmotion.state & ShiftMask,
                                event->xmotion.x_root,
                                event->xmotion.y_root,
+                               FALSE,
                                FALSE);
+            }
+        }
+      break;
+
+    default:
+      break;
+    }
+}
+
+LOCAL_SYMBOL void
+meta_window_handle_keyboard_grab_op_event (MetaWindow *window,
+                                           XEvent     *event)
+{
+  switch (event->type)
+    {
+    case KeyPress:
+    case KeyRelease:
+      meta_display_check_threshold_reached (window->display,
+                                            event->xmotion.x_root,
+                                            event->xmotion.y_root);
+      if (window->display->grab_op == META_GRAB_OP_MOVING)
+        {
+          if (event->xmotion.root == window->screen->xroot)
+            {
+              if (check_use_this_motion_notify (window,
+                                                event)) {
+                unsigned int *mod_set = meta_prefs_get_snap_modifier ();
+                KeySym keysym = XkbKeycodeToKeysym (window->display->xdisplay, event->xkey.keycode, 0, 0);
+                if (mod_set[0] != 0)
+                {
+                    gboolean snap = FALSE;
+                    if (event->type == KeyPress && (keysym == mod_set[0] ||
+                                                    keysym == mod_set[1]))
+                        snap = TRUE;
+                    update_move (window,
+                                 event->xmotion.state & ShiftMask,
+                                 snap,
+                                 event->xmotion.x_root,
+                                 event->xmotion.y_root);
+                }
+                guint motion_left = meta_prefs_get_invert_flip_direction () ? META_MOTION_RIGHT : META_MOTION_LEFT;
+                guint motion_right = meta_prefs_get_invert_flip_direction () ? META_MOTION_LEFT : META_MOTION_RIGHT;
+                if (event->type == KeyPress && keysym == XK_Left) {
+                    MetaWorkspace *target_workspace = meta_workspace_get_neighbor (window->screen->active_workspace,
+                                                                                   motion_left);
+                    if (target_workspace)
+                      {
+                        gint old_ws_index = meta_workspace_index (window->screen->active_workspace);
+                        meta_workspace_activate (target_workspace, event->xkey.time);
+                        if (old_ws_index != meta_workspace_index (window->screen->active_workspace))
+                          g_signal_emit_by_name (window->screen, "show-workspace-osd", NULL);
+                      }
+                }
+                if (event->type == KeyPress && keysym == XK_Right) {
+                    MetaWorkspace *target_workspace = meta_workspace_get_neighbor (window->screen->active_workspace,
+                                                                                   motion_right);
+                    if (target_workspace)
+                      {
+                        gint old_ws_index = meta_workspace_index (window->screen->active_workspace);
+                        meta_workspace_activate (target_workspace, event->xkey.time);
+                        if (old_ws_index != meta_workspace_index (window->screen->active_workspace))
+                          g_signal_emit_by_name (window->screen, "show-workspace-osd", NULL);
+                      }
+                }
+              }
             }
         }
       break;
@@ -9495,6 +10035,81 @@ meta_window_get_work_area_all_monitors (MetaWindow    *window,
 }
 
 LOCAL_SYMBOL void
+meta_window_get_tile_threshold_area_for_mode (MetaWindow    *window,
+                                              MetaRectangle  work_area,
+                                              MetaTileMode   mode,
+                                              MetaRectangle *tile_area,
+                                              gint           zone_width)
+{
+  int tile_monitor_number;
+
+  g_return_if_fail (mode != META_TILE_NONE);
+
+  if (window != NULL) {
+      tile_monitor_number = window->tile_monitor_number;
+      if (tile_monitor_number < 0)
+        {
+          meta_warning ("%s called with an invalid monitor number; using 0 instead\n", G_STRFUNC);
+          tile_monitor_number = 0;
+        }
+      meta_window_get_work_area_for_monitor (window, tile_monitor_number, tile_area);
+  } else {
+    tile_area->x = work_area.x;
+    tile_area->y = work_area.y;
+    tile_area->height = work_area.height;
+    tile_area->width = work_area.width;
+  }
+
+  switch (mode) {
+      case META_TILE_LEFT:
+          tile_area->width = zone_width;
+          tile_area->y = tile_area->y + zone_width;
+          tile_area->height = tile_area->height - (2 * zone_width);
+          break;
+      case META_TILE_RIGHT:
+          tile_area->x = tile_area->width - zone_width;
+          tile_area->width = zone_width;
+          tile_area->y = tile_area->y + zone_width;
+          tile_area->height = tile_area->height - (2 * zone_width);
+          break;
+      case META_TILE_ULC:
+          tile_area->width = zone_width;
+          tile_area->height = zone_width;
+          break;
+      case META_TILE_LLC:
+          tile_area->y = tile_area->height - zone_width;
+          tile_area->width = zone_width;
+          tile_area->height = zone_width;
+          break;
+      case META_TILE_URC:
+          tile_area->x = tile_area->width - zone_width;
+          tile_area->width = zone_width;
+          tile_area->height = zone_width;
+          break;
+      case META_TILE_LRC:
+          tile_area->x = tile_area->width - zone_width;
+          tile_area->width = zone_width;
+          tile_area->y = tile_area->height - zone_width;
+          tile_area->height = zone_width;
+          break;
+      case META_TILE_TOP:
+      case META_TILE_MAXIMIZE:
+          tile_area->height = zone_width;
+          tile_area->x = tile_area->x + zone_width;
+          tile_area->width = tile_area->width - (2 * zone_width);
+          break;
+      case META_TILE_BOTTOM:
+          tile_area->y = tile_area->height - zone_width;
+          tile_area->height = zone_width;
+          tile_area->x = tile_area->x + zone_width;
+          tile_area->width = tile_area->width - (2 * zone_width);
+          break;
+      default:
+          break;
+  }
+}
+
+LOCAL_SYMBOL void
 meta_window_get_current_tile_area (MetaWindow    *window,
                                    MetaRectangle *tile_area)
 {
@@ -9517,6 +10132,37 @@ meta_window_get_current_tile_area (MetaWindow    *window,
 
   if (window->tile_mode == META_TILE_RIGHT)
     tile_area->x += tile_area->width;
+
+  if (window->tile_mode == META_TILE_ULC) {
+    tile_area->width /= 2;
+    tile_area->height /= 2;
+  }
+
+  if (window->tile_mode == META_TILE_LLC) {
+    tile_area->width /= 2;
+    tile_area->height /= 2;
+    tile_area->y += tile_area->height;
+  }
+
+  if (window->tile_mode == META_TILE_URC) {
+    tile_area->width /= 2;
+    tile_area->height /= 2;
+    tile_area->x += tile_area->width;
+  }
+
+  if (window->tile_mode == META_TILE_LRC) {
+    tile_area->width /= 2;
+    tile_area->height /= 2;
+    tile_area->x += tile_area->width;
+    tile_area->y += tile_area->height;
+  }
+
+  if (window->tile_mode == META_TILE_TOP ||
+      window->tile_mode == META_TILE_BOTTOM)
+    tile_area->height /= 2;
+
+  if (window->tile_mode == META_TILE_BOTTOM)
+    tile_area->y += tile_area->height;
 }
 
 LOCAL_SYMBOL gboolean
@@ -10027,7 +10673,7 @@ meta_window_set_user_time (MetaWindow *window,
        * doesn't want to have focus transferred for now due to new windows.
        */
       if (meta_prefs_get_focus_new_windows () ==
-               G_DESKTOP_FOCUS_NEW_WINDOWS_STRICT &&
+               C_DESKTOP_FOCUS_NEW_WINDOWS_STRICT &&
           __window_is_terminal (window))
         window->display->allow_terminal_deactivation = FALSE;
     }
@@ -10707,8 +11353,7 @@ meta_window_get_frame_type (MetaWindow *window)
       /* can't add border if undecorated */
       return META_FRAME_TYPE_LAST;
     }
-  else if ((window->border_only && base_type != META_FRAME_TYPE_ATTACHED) ||
-           (window->hide_titlebar_when_maximized && META_WINDOW_MAXIMIZED (window)))
+  else if ((window->border_only && base_type != META_FRAME_TYPE_ATTACHED))
     {
       /* override base frame type */
       return META_FRAME_TYPE_BORDER;
@@ -10759,7 +11404,7 @@ meta_window_is_attached_dialog (MetaWindow *window)
 /**
  * meta_window_get_tile_match:
  *
- * Returns the matching tiled window on the same monitor as @window. This is
+ * Returns the matching tiled window on the same monitory as @window. This is
  * the topmost tiled window in a complementary tile mode that is:
  *
  *  - on the same monitor;
@@ -10793,6 +11438,18 @@ meta_window_compute_tile_match (MetaWindow *window)
     match_tile_mode = META_TILE_RIGHT;
   else if (META_WINDOW_TILED_RIGHT (window))
     match_tile_mode = META_TILE_LEFT;
+  else if (META_WINDOW_TILED_ULC (window))
+    match_tile_mode = META_TILE_ULC;
+  else if (META_WINDOW_TILED_LLC (window))
+    match_tile_mode = META_TILE_LLC;
+  else if (META_WINDOW_TILED_URC (window))
+    match_tile_mode = META_TILE_URC;
+  else if (META_WINDOW_TILED_LRC (window))
+    match_tile_mode = META_TILE_LRC;
+  else if (META_WINDOW_TILED_TOP (window))
+    match_tile_mode = META_TILE_TOP;
+  else if (META_WINDOW_TILED_BOTTOM (window))
+    match_tile_mode = META_TILE_BOTTOM;
   else
     return;
 
@@ -10850,4 +11507,149 @@ meta_window_compute_tile_match (MetaWindow *window)
 
       window->tile_match = match;
     }
+}
+
+void
+meta_window_set_tile_type (MetaWindow        *window,
+                           MetaWindowTileType type)
+{
+    g_return_if_fail (META_IS_WINDOW (window));
+
+    if (window->tile_type != type) {
+        window->tile_type = type;
+    }
+}
+
+MetaWindowTileType
+meta_window_get_tile_type (MetaWindow *window)
+{
+    g_return_val_if_fail (META_IS_WINDOW (window), META_WINDOW_TILE_TYPE_NONE);
+
+    return window->tile_type;
+}
+
+inline void
+meta_window_get_size_limits (const MetaWindow        *window,
+                             const MetaFrameBorders *borders,
+                                   gboolean          include_frame,
+                                   MetaRectangle    *min_size,
+                                   MetaRectangle    *max_size)
+{
+  /* We pack the results into MetaRectangle structs just for convienience; we
+   * don't actually use the position of those rects.
+   */
+  min_size->width  = window->size_hints.min_width;
+  min_size->height = window->size_hints.min_height;
+  max_size->width  = window->size_hints.max_width;
+  max_size->height = window->size_hints.max_height;
+
+  if (include_frame)
+    {
+      int fw = borders->visible.left + borders->visible.right;
+      int fh = borders->visible.top + borders->visible.bottom;
+
+      min_size->width  += fw;
+      min_size->height += fh;
+      /* Do check to avoid overflow (e.g. max_size->width & max_size->height
+       * may be set to G_MAXINT by meta_set_normal_hints()).
+       */
+      if (max_size->width < (G_MAXINT - fw))
+        max_size->width += fw;
+      else
+        max_size->width = G_MAXINT;
+      if (max_size->height < (G_MAXINT - fh))
+        max_size->height += fh;
+      else
+        max_size->height = G_MAXINT;
+    }
+}
+
+HUDTileRestrictions
+meta_window_get_tile_restrictions (MetaWindow *window)
+{
+    g_return_val_if_fail (window != NULL, 0);
+    HUDTileRestrictions ret = 0;
+
+    if (meta_window_can_tile_side_by_side (window))
+        ret |= HUD_CAN_TILE_SIDE_BY_SIDE;
+    if (meta_window_can_tile_top_bottom (window))
+        ret |= HUD_CAN_TILE_TOP_BOTTOM;
+    if (meta_window_can_tile_corner (window))
+        ret |= HUD_CAN_TILE_CORNER;
+
+    return ret;
+}
+
+#define ORIGIN_CONSTANT 1
+#define EXTREME_CONSTANT 2
+#define COMMON_EDGE_PADDING 10
+
+static void
+get_extra_padding_for_common_monitor_edges (MetaWindow        *window,
+                                                  gint         monitor_num,
+                                         MetaRectangle         cur_rect,
+                                                  gint        *left_shift,
+                                                  gint       *right_shift,
+                                                  gint          *up_shift,
+                                                  gint        *down_shift)
+{
+    gint num_mons;
+    gint i;
+    MetaRectangle other_rect;
+    num_mons = meta_screen_get_n_monitors (window->screen);
+
+    if (num_mons == 1)
+        return;
+
+    for (i = 0; i < num_mons; i++) {
+        if (i == monitor_num)
+            continue;
+
+        meta_screen_get_monitor_geometry (window->screen, i, &other_rect);
+
+        if (BOX_CENTER_X (other_rect) < BOX_LEFT (cur_rect)) {
+            *left_shift += COMMON_EDGE_PADDING;
+            continue;
+        }
+        if (BOX_CENTER_X (other_rect) > BOX_RIGHT (cur_rect)) {
+            *right_shift += COMMON_EDGE_PADDING;
+            continue;
+        }
+        if (BOX_CENTER_Y (other_rect) < BOX_TOP (cur_rect)) {
+            *up_shift += COMMON_EDGE_PADDING;
+            continue;
+        }
+        if (BOX_CENTER_Y (other_rect) > BOX_BOTTOM (cur_rect)) {
+            *down_shift += COMMON_EDGE_PADDING;
+            continue;
+        }
+    }
+}
+
+gboolean
+meta_window_mouse_on_edge (MetaWindow *window, gint x, gint y)
+{
+    MetaRectangle work_area;
+    gboolean ret = FALSE;
+    const MetaMonitorInfo *monitor;
+    gint left_shift, right_shift, up_shift, down_shift;
+    left_shift = right_shift = up_shift = down_shift = 0;
+
+    monitor = meta_screen_get_current_monitor (window->screen);
+    meta_window_get_work_area_for_monitor (window, monitor->number, &work_area);
+
+    get_extra_padding_for_common_monitor_edges (window,
+                                                monitor->number,
+                                                work_area,
+                                                &left_shift,
+                                                &right_shift,
+                                                &up_shift,
+                                                &down_shift);
+
+    ret = x <= BOX_LEFT (work_area) + ORIGIN_CONSTANT + left_shift ||
+          x >= BOX_RIGHT (work_area) - EXTREME_CONSTANT - right_shift ||
+          y <= BOX_TOP (work_area) + ORIGIN_CONSTANT  + up_shift ||
+          y >= BOX_BOTTOM (work_area) - EXTREME_CONSTANT - down_shift;
+
+    return ret;
 }

@@ -53,6 +53,7 @@
 #define KEY_GNOME_CURSOR_THEME "cursor-theme"
 #define KEY_GNOME_CURSOR_SIZE "cursor-size"
 
+#define KEY_WS_NAMES_GNOME "workspace-names"
 #define KEY_OVERLAY_KEY "overlay-key"
 #define KEY_LIVE_HIDDEN_WINDOWS "live-hidden-windows"
 #define KEY_WORKSPACES_ONLY_ON_PRIMARY "workspaces-only-on-primary"
@@ -60,10 +61,10 @@
 
 /* These are the different schemas we are keeping
  * a GSettings instance for */
-#define SCHEMA_GENERAL         "org.gnome.desktop.wm.preferences"
+#define SCHEMA_GENERAL         "org.cinnamon.desktop.wm.preferences"
 #define SCHEMA_CINNAMON          "org.cinnamon"
 #define SCHEMA_MUFFIN          "org.cinnamon.muffin"
-#define SCHEMA_INTERFACE       "org.gnome.desktop.interface"
+#define SCHEMA_INTERFACE       "org.cinnamon.desktop.interface"
 
 #define SETTINGS(s) g_hash_table_lookup (settings_schemas, (s))
 
@@ -75,16 +76,16 @@ static GHashTable *settings_schemas;
 static gboolean use_system_font = FALSE;
 static PangoFontDescription *titlebar_font = NULL;
 static MetaVirtualModifier mouse_button_mods = Mod1Mask;
-static GDesktopFocusMode focus_mode = G_DESKTOP_FOCUS_MODE_CLICK;
-static GDesktopFocusNewWindows focus_new_windows = G_DESKTOP_FOCUS_NEW_WINDOWS_SMART;
+static CDesktopFocusMode focus_mode = C_DESKTOP_FOCUS_MODE_CLICK;
+static CDesktopFocusNewWindows focus_new_windows = C_DESKTOP_FOCUS_NEW_WINDOWS_SMART;
 static gboolean raise_on_click = TRUE;
 static gboolean attach_modal_dialogs = FALSE;
 static char* current_theme = NULL;
 static int num_workspaces = 4;
 static gboolean workspace_cycle = FALSE;
-static GDesktopTitlebarAction action_double_click_titlebar = G_DESKTOP_TITLEBAR_ACTION_TOGGLE_MAXIMIZE;
-static GDesktopTitlebarAction action_middle_click_titlebar = G_DESKTOP_TITLEBAR_ACTION_LOWER;
-static GDesktopTitlebarAction action_right_click_titlebar = G_DESKTOP_TITLEBAR_ACTION_MENU;
+static CDesktopTitlebarAction action_double_click_titlebar = C_DESKTOP_TITLEBAR_ACTION_TOGGLE_MAXIMIZE;
+static CDesktopTitlebarAction action_middle_click_titlebar = C_DESKTOP_TITLEBAR_ACTION_LOWER;
+static CDesktopTitlebarAction action_right_click_titlebar = C_DESKTOP_TITLEBAR_ACTION_MENU;
 static gboolean dynamic_workspaces = FALSE;
 static gboolean application_based = FALSE;
 static gboolean disable_workarounds = FALSE;
@@ -97,13 +98,14 @@ static gboolean gnome_animations = TRUE;
 static char *cursor_theme = NULL;
 static int   cursor_size = 24;
 static int   draggable_border_width = 10;
-static int edge_tile_threshold = 48;
-static int edge_detach_threshold = 24;
+static int tile_hud_threshold = 150;
+static int resize_threshold = 24;
 static gboolean resize_with_right_button = FALSE;
 static gboolean edge_tiling = FALSE;
 static gboolean force_fullscreen = TRUE;
+static unsigned int snap_modifier[2];
 
-static GDesktopVisualBellType visual_bell_type = G_DESKTOP_VISUAL_BELL_FULLSCREEN_FLASH;
+static CDesktopVisualBellType visual_bell_type = C_DESKTOP_VISUAL_BELL_FULLSCREEN_FLASH;
 static MetaButtonLayout button_layout;
 
 /* NULL-terminated array */
@@ -113,7 +115,9 @@ static gboolean live_hidden_windows = FALSE;
 static gboolean workspaces_only_on_primary = FALSE;
 
 static gboolean no_tab_popup = FALSE;
-
+static gboolean legacy_snap = FALSE;
+static gboolean invert_workspace_flip = FALSE;
+static gboolean tile_maximize = FALSE;
 
 static void handle_preference_update_enum (GSettings *settings,
                                            gchar     *key);
@@ -137,12 +141,15 @@ static void maybe_give_disable_workarounds_warning (void);
 static gboolean titlebar_handler (GVariant*, gpointer*, gpointer);
 static gboolean theme_name_handler (GVariant*, gpointer*, gpointer);
 static gboolean mouse_button_mods_handler (GVariant*, gpointer*, gpointer);
+static gboolean snap_modifier_handler (GVariant*, gpointer*, gpointer);
 static gboolean button_layout_handler (GVariant*, gpointer*, gpointer);
 
 static void     do_override               (char *key, char *schema);
 
 static void     init_bindings             (void);
 static void     init_workspace_names      (void);
+
+static MetaPlacementMode placement_mode = META_PLACEMENT_MODE_AUTOMATIC;
 
 
 typedef struct
@@ -259,6 +266,13 @@ static MetaEnumPreference preferences_enum[] =
         META_PREF_ACTION_RIGHT_CLICK_TITLEBAR,
       },
       &action_right_click_titlebar,
+    },
+    {
+      { "placement-mode",
+        SCHEMA_MUFFIN,
+        META_PREF_PLACEMENT_MODE,
+      },
+      &placement_mode,
     },
     { { NULL, 0, 0 }, NULL },
   };
@@ -384,6 +398,27 @@ static MetaBoolPreference preferences_bool[] =
       },
       &no_tab_popup,
     },
+    {
+      { "legacy-snap",
+        SCHEMA_MUFFIN,
+        META_PREF_LEGACY_SNAP,
+      },
+      &legacy_snap,
+    },
+    {
+      { "invert-workspace-flip-direction",
+        SCHEMA_MUFFIN,
+        META_PREF_INVERT_WORKSPACE_FLIP_DIRECTION,
+      },
+      &invert_workspace_flip,
+    },
+    {
+      { "tile-maximize",
+        SCHEMA_MUFFIN,
+        META_PREF_TILE_MAXIMIZE,
+      },
+      &tile_maximize,
+    },
     { { NULL, 0, 0 }, NULL },
   };
 
@@ -415,7 +450,7 @@ static MetaStringPreference preferences_string[] =
     },
     {
       { "button-layout",
-        SCHEMA_GENERAL,
+        SCHEMA_MUFFIN,
         META_PREF_BUTTON_LAYOUT,
       },
       button_layout_handler,
@@ -429,6 +464,15 @@ static MetaStringPreference preferences_string[] =
       NULL,
       &cursor_theme,
     },
+    {
+      { "snap-modifier",
+        SCHEMA_MUFFIN,
+        META_PREF_SNAP_MODIFIER,
+      },
+      snap_modifier_handler,
+      NULL,
+    },
+
     { { NULL, 0, 0 }, NULL },
   };
 
@@ -463,18 +507,18 @@ static MetaIntPreference preferences_int[] =
       &draggable_border_width
     },
     {
-      { "edge-tile-threshold",
+      { "tile-hud-threshold",
         SCHEMA_MUFFIN,
-        META_PREF_EDGE_TILE_THRESHOLD,
+        META_PREF_TILE_HUD_THRESHOLD,
       },
-      &edge_tile_threshold
+      &tile_hud_threshold
     },
     {
-      { "edge-detach-threshold",
+      { "resize-threshold",
         SCHEMA_MUFFIN,
-        META_PREF_EDGE_DETACH_THRESHOLD,
+        META_PREF_RESIZE_THRESHOLD,
       },
-      &edge_detach_threshold
+      &resize_threshold
     },
     { { NULL, 0, 0 }, NULL },
   };
@@ -1074,6 +1118,10 @@ settings_changed (GSettings *settings,
     {
       queue_changed (META_PREF_KEYBINDINGS);
     }
+  else if (g_str_equal (key, KEY_WS_NAMES_GNOME))
+    {
+      return;
+    }
   else
     {
       /* Someone added a preference of an unhandled type */
@@ -1121,13 +1169,13 @@ meta_prefs_get_mouse_button_mods  (void)
   return mouse_button_mods;
 }
 
-GDesktopFocusMode
+CDesktopFocusMode
 meta_prefs_get_focus_mode (void)
 {
   return focus_mode;
 }
 
-GDesktopFocusNewWindows
+CDesktopFocusNewWindows
 meta_prefs_get_focus_new_windows (void)
 {
   return focus_new_windows;
@@ -1145,7 +1193,7 @@ meta_prefs_get_raise_on_click (void)
   /* Force raise_on_click on for click-to-focus, as requested by Havoc
    * in #326156.
    */
-  return raise_on_click || focus_mode == G_DESKTOP_FOCUS_MODE_CLICK;
+  return raise_on_click || focus_mode == C_DESKTOP_FOCUS_MODE_CLICK;
 }
 
 const char*
@@ -1268,6 +1316,44 @@ mouse_button_mods_handler (GVariant *value,
       queue_changed (META_PREF_MOUSE_BUTTON_MODS);
     }
 
+  return TRUE;
+}
+
+static gboolean
+snap_modifier_handler (GVariant *value,
+                       gpointer *result,
+                       gpointer  data)
+{
+
+  const gchar *string_value;
+
+  *result = NULL; /* ignored */
+  string_value = g_variant_get_string (value, NULL);
+
+  if (g_strcmp0 (string_value, "Super") == 0)
+  {
+    snap_modifier[0] = XStringToKeysym("Super_L");
+    snap_modifier[1] = XStringToKeysym("Super_R");
+  }
+  else if (g_strcmp0 (string_value, "Alt") == 0)
+  {
+    snap_modifier[0] = XStringToKeysym("Alt_L");
+    snap_modifier[1] = XStringToKeysym("Alt_R");
+  }
+  else if (g_strcmp0 (string_value, "Shift") == 0)
+  {
+    snap_modifier[0] = XStringToKeysym("Shift_L");
+    snap_modifier[1] = XStringToKeysym("Shift_R");
+  }
+  else if (g_strcmp0 (string_value, "Control") == 0)
+  {
+    snap_modifier[0] = XStringToKeysym("Control_L");
+    snap_modifier[1] = XStringToKeysym("Control_R");
+  } else
+  {
+    snap_modifier[0] = 0;
+    snap_modifier[1] = 0;
+  }
   return TRUE;
 }
 
@@ -1674,14 +1760,30 @@ meta_preference_to_string (MetaPreference pref)
     case META_PREF_DRAGGABLE_BORDER_WIDTH:
       return "DRAGGABLE_BORDER_WIDTH";
 
-    case META_PREF_EDGE_TILE_THRESHOLD:
-      return "EDGE_TILE_THRESHOLD";
+    case META_PREF_TILE_HUD_THRESHOLD:
+      return "TILE_HUD_THRESHOLD";
 
-    case META_PREF_EDGE_DETACH_THRESHOLD:
-      return "EDGE_DETACH_THRESHOLD";
+    case META_PREF_RESIZE_THRESHOLD:
+      return "RESIZE_THRESHOLD";
 
     case META_PREF_DYNAMIC_WORKSPACES:
       return "DYNAMIC_WORKSPACES";
+
+    case META_PREF_SNAP_MODIFIER:
+      return "SNAP_MODIFIER";
+
+    case META_PREF_LEGACY_SNAP:
+      return "LEGACY_SNAP";
+
+    case META_PREF_INVERT_WORKSPACE_FLIP_DIRECTION:
+      return "INVERT_WORKSPACE_FLIP_DIRECTION";
+
+    case META_PREF_TILE_MAXIMIZE:
+      return "TILE_MAXIMIZE";
+
+    case META_PREF_PLACEMENT_MODE:
+      return "PLACEMENT_MODE";
+
     }
 
   return "(unknown)";
@@ -1961,7 +2063,7 @@ meta_prefs_bell_is_audible (void)
   return bell_is_audible;
 }
 
-GDesktopVisualBellType
+CDesktopVisualBellType
 meta_prefs_get_visual_bell_type (void)
 {
   return visual_bell_type;
@@ -2124,19 +2226,19 @@ meta_prefs_get_overlay_binding (MetaKeyCombo *combo)
   *combo = overlay_key_combo;
 }
 
-GDesktopTitlebarAction
+CDesktopTitlebarAction
 meta_prefs_get_action_double_click_titlebar (void)
 {
   return action_double_click_titlebar;
 }
 
-GDesktopTitlebarAction
+CDesktopTitlebarAction
 meta_prefs_get_action_middle_click_titlebar (void)
 {
   return action_middle_click_titlebar;
 }
 
-GDesktopTitlebarAction
+CDesktopTitlebarAction
 meta_prefs_get_action_right_click_titlebar (void)
 {
   return action_right_click_titlebar;
@@ -2263,11 +2365,16 @@ meta_prefs_get_workspaces_only_on_primary (void)
   return workspaces_only_on_primary;
 }
 
-
 gboolean
 meta_prefs_get_no_tab_popup (void)
 {
   return no_tab_popup;
+}
+
+gboolean
+meta_prefs_get_legacy_snap (void)
+{
+  return legacy_snap;
 }
 
 void
@@ -2287,19 +2394,43 @@ meta_prefs_get_draggable_border_width (void)
 }
 
 int
-meta_prefs_get_edge_tile_threshold (void)
+meta_prefs_get_tile_hud_threshold (void)
 {
-  return edge_tile_threshold;
+  return tile_hud_threshold;
 }
 
 int
-meta_prefs_get_edge_detach_threshold (void)
+meta_prefs_get_resize_threshold (void)
 {
-  return edge_detach_threshold;
+  return resize_threshold;
 }
 
 void
 meta_prefs_set_force_fullscreen (gboolean whether)
 {
   force_fullscreen = whether;
+}
+
+unsigned int *
+meta_prefs_get_snap_modifier (void)
+{
+    return snap_modifier;
+}
+
+gboolean
+meta_prefs_get_invert_flip_direction (void)
+{
+    return invert_workspace_flip;
+}
+
+gboolean
+meta_prefs_get_tile_maximize (void)
+{
+    return tile_maximize;
+}
+
+MetaPlacementMode
+meta_prefs_get_placement_mode (void)
+{
+  return placement_mode;
 }

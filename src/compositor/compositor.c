@@ -380,6 +380,7 @@ meta_begin_modal_for_plugin (MetaScreen       *screen,
    * are significant differences in how we handle grabs that make it difficult to
    * merge the two.
    */
+
   MetaDisplay    *display    = meta_screen_get_display (screen);
   Display        *xdpy       = meta_display_get_xdisplay (display);
   MetaCompositor *compositor = display->compositor;
@@ -968,6 +969,20 @@ meta_compositor_switch_workspace (MetaCompositor     *compositor,
     }
 }
 
+void
+meta_compositor_tile_window (MetaCompositor    *compositor,
+                                 MetaWindow        *window,
+                               MetaRectangle     *old_rect,
+                               MetaRectangle     *new_rect)
+{
+  MetaWindowActor *window_actor = META_WINDOW_ACTOR (meta_window_get_compositor_private (window));
+  DEBUG_TRACE ("meta_compositor_tile_window\n");
+  if (!window_actor)
+    return;
+
+  meta_window_actor_tile (window_actor, old_rect, new_rect);
+}
+
 static void
 sync_actor_stacking (MetaCompScreen *info)
 {
@@ -1361,8 +1376,10 @@ void
 meta_enable_unredirect_for_screen (MetaScreen *screen)
 {
   MetaCompScreen *info = meta_screen_get_compositor_data (screen);
-  if (info != NULL)
-   info->disable_unredirect_count = MAX(0, info->disable_unredirect_count - 1);
+  if (info != NULL && info->disable_unredirect_count == 0)
+    g_warning ("Called enable_unredirect_for_screen while unredirection is enabled.");
+  if (info != NULL && info->disable_unredirect_count > 0)
+   info->disable_unredirect_count = info->disable_unredirect_count - 1;
 }
 
 #define FLASH_TIME_MS 50

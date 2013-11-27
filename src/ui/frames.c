@@ -1146,7 +1146,7 @@ meta_frame_titlebar_event (MetaUIFrame    *frame,
   
   switch (action)
     {
-    case G_DESKTOP_TITLEBAR_ACTION_TOGGLE_SHADE:
+    case C_DESKTOP_TITLEBAR_ACTION_TOGGLE_SHADE:
       {
         meta_core_get (display, frame->xwindow,
                        META_CORE_GET_FRAME_FLAGS, &flags,
@@ -1166,7 +1166,7 @@ meta_frame_titlebar_event (MetaUIFrame    *frame,
       }
       break;          
       
-    case G_DESKTOP_TITLEBAR_ACTION_TOGGLE_MAXIMIZE:
+    case C_DESKTOP_TITLEBAR_ACTION_TOGGLE_MAXIMIZE:
       {
         meta_core_get (display, frame->xwindow,
                        META_CORE_GET_FRAME_FLAGS, &flags,
@@ -1179,7 +1179,7 @@ meta_frame_titlebar_event (MetaUIFrame    *frame,
       }
       break;
 
-    case G_DESKTOP_TITLEBAR_ACTION_TOGGLE_MAXIMIZE_HORIZONTALLY:
+    case C_DESKTOP_TITLEBAR_ACTION_TOGGLE_MAXIMIZE_HORIZONTALLY:
       {
         meta_core_get (display, frame->xwindow,
                        META_CORE_GET_FRAME_FLAGS, &flags,
@@ -1192,7 +1192,7 @@ meta_frame_titlebar_event (MetaUIFrame    *frame,
       }
       break;
 
-    case G_DESKTOP_TITLEBAR_ACTION_TOGGLE_MAXIMIZE_VERTICALLY:
+    case C_DESKTOP_TITLEBAR_ACTION_TOGGLE_MAXIMIZE_VERTICALLY:
       {
         meta_core_get (display, frame->xwindow,
                        META_CORE_GET_FRAME_FLAGS, &flags,
@@ -1205,7 +1205,7 @@ meta_frame_titlebar_event (MetaUIFrame    *frame,
       }
       break;
 
-    case G_DESKTOP_TITLEBAR_ACTION_MINIMIZE:
+    case C_DESKTOP_TITLEBAR_ACTION_MINIMIZE:
       {
         meta_core_get (display, frame->xwindow,
                        META_CORE_GET_FRAME_FLAGS, &flags,
@@ -1218,17 +1218,17 @@ meta_frame_titlebar_event (MetaUIFrame    *frame,
       }
       break;
 
-    case G_DESKTOP_TITLEBAR_ACTION_NONE:
+    case C_DESKTOP_TITLEBAR_ACTION_NONE:
       /* Yaay, a sane user that doesn't use that other weird crap! */
       break;
     
-    case G_DESKTOP_TITLEBAR_ACTION_LOWER:
+    case C_DESKTOP_TITLEBAR_ACTION_LOWER:
       meta_core_user_lower_and_unfocus (display,
                                         frame->xwindow,
                                         event->time);
       break;
 
-    case G_DESKTOP_TITLEBAR_ACTION_MENU:
+    case C_DESKTOP_TITLEBAR_ACTION_MENU:
       meta_core_show_window_menu (display,
                                   frame->xwindow,
                                   event->x_root,
@@ -1278,12 +1278,12 @@ meta_frame_double_click_edge_event (MetaUIFrame        *frame,
         case META_FRAME_CONTROL_RESIZE_S:
             return meta_frame_titlebar_event (frame,
                                               event,
-                                              G_DESKTOP_TITLEBAR_ACTION_TOGGLE_MAXIMIZE_VERTICALLY);
+                                              C_DESKTOP_TITLEBAR_ACTION_TOGGLE_MAXIMIZE_VERTICALLY);
         case META_FRAME_CONTROL_RESIZE_E:
         case META_FRAME_CONTROL_RESIZE_W:
             return meta_frame_titlebar_event (frame,
                                               event,
-                                              G_DESKTOP_TITLEBAR_ACTION_TOGGLE_MAXIMIZE_HORIZONTALLY);
+                                              C_DESKTOP_TITLEBAR_ACTION_TOGGLE_MAXIMIZE_HORIZONTALLY);
         default:
             return FALSE;
         }
@@ -2514,7 +2514,7 @@ get_control (MetaFrames *frames,
   MetaFrameGeometry fgeom;
   MetaFrameFlags flags;
   MetaFrameType type;
-  gboolean has_vert, has_horiz;
+  gboolean has_vert, has_horiz, has_left, has_right, has_bottom, has_top;
   gboolean has_north_resize;
   cairo_rectangle_int_t client;
 
@@ -2542,6 +2542,10 @@ get_control (MetaFrames *frames,
   has_north_resize = (type != META_FRAME_TYPE_ATTACHED);
   has_vert = (flags & META_FRAME_ALLOWS_VERTICAL_RESIZE) != 0;
   has_horiz = (flags & META_FRAME_ALLOWS_HORIZONTAL_RESIZE) != 0;
+  has_top = (flags & META_FRAME_ALLOWS_TOP_RESIZE) != 0;
+  has_left = (flags & META_FRAME_ALLOWS_LEFT_RESIZE) != 0;
+  has_right = (flags & META_FRAME_ALLOWS_RIGHT_RESIZE) != 0;
+  has_bottom = (flags & META_FRAME_ALLOWS_BOTTOM_RESIZE) != 0;
 
   if (POINT_IN_RECT (x, y, fgeom.title_rect))
     {
@@ -2596,61 +2600,61 @@ get_control (MetaFrames *frames,
   if (y >= (fgeom.height - fgeom.borders.total.bottom) &&
       x >= (fgeom.width - fgeom.borders.total.right))
     {
-      if (has_vert && has_horiz)
+      if ((has_vert && has_horiz) || (has_bottom && has_right))
         return META_FRAME_CONTROL_RESIZE_SE;
-      else if (has_vert)
+      else if (has_bottom)
         return META_FRAME_CONTROL_RESIZE_S;
-      else if (has_horiz)
+      else if (has_right)
         return META_FRAME_CONTROL_RESIZE_E;
     }
   else if (y >= (fgeom.height - fgeom.borders.total.bottom) &&
            x <= fgeom.borders.total.left)
     {
-      if (has_vert && has_horiz)
+      if ((has_vert && has_horiz) || (has_bottom && has_left))
         return META_FRAME_CONTROL_RESIZE_SW;
-      else if (has_vert)
+      else if (has_bottom)
         return META_FRAME_CONTROL_RESIZE_S;
-      else if (has_horiz)
+      else if (has_left)
         return META_FRAME_CONTROL_RESIZE_W;
     }
   else if (y < (fgeom.borders.invisible.top) &&
            x <= fgeom.borders.total.left && has_north_resize)
     {
-      if (has_vert && has_horiz)
+      if ((has_vert && has_horiz) || (has_top && has_left))
         return META_FRAME_CONTROL_RESIZE_NW;
-      else if (has_vert)
+      else if (has_top)
         return META_FRAME_CONTROL_RESIZE_N;
-      else if (has_horiz)
+      else if (has_left)
         return META_FRAME_CONTROL_RESIZE_W;
     }
   else if (y < (fgeom.borders.invisible.top) &&
            x >= fgeom.width - fgeom.borders.total.right && has_north_resize)
     {
-      if (has_vert && has_horiz)
+      if ((has_vert && has_horiz) || (has_top && has_right))
         return META_FRAME_CONTROL_RESIZE_NE;
-      else if (has_vert)
+      else if (has_top)
         return META_FRAME_CONTROL_RESIZE_N;
-      else if (has_horiz)
+      else if (has_right)
         return META_FRAME_CONTROL_RESIZE_E;
     }
   else if (y < (fgeom.borders.invisible.top + TOP_RESIZE_HEIGHT))
     {
-      if (has_vert && has_north_resize)
+      if (has_top && has_north_resize)
         return META_FRAME_CONTROL_RESIZE_N;
     }
   else if (y >= (fgeom.height - fgeom.borders.total.bottom))
     {
-      if (has_vert)
+      if (has_bottom)
         return META_FRAME_CONTROL_RESIZE_S;
     }
   else if (x <= fgeom.borders.total.left)
     {
-      if (has_horiz)
+      if (has_left)
         return META_FRAME_CONTROL_RESIZE_W;
     }
   else if (x >= (fgeom.width - fgeom.borders.total.right))
     {
-      if (has_horiz)
+      if (has_right)
         return META_FRAME_CONTROL_RESIZE_E;
     }
 

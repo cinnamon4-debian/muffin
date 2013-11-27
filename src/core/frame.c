@@ -276,6 +276,18 @@ meta_frame_get_flags (MetaFrame *frame)
   if (META_WINDOW_ALLOWS_VERTICAL_RESIZE (frame->window))
     flags |= META_FRAME_ALLOWS_VERTICAL_RESIZE;
   
+  if (META_WINDOW_ALLOWS_TOP_RESIZE (frame->window))
+    flags |= META_FRAME_ALLOWS_TOP_RESIZE;
+
+  if (META_WINDOW_ALLOWS_BOTTOM_RESIZE (frame->window))
+    flags |= META_FRAME_ALLOWS_BOTTOM_RESIZE;
+
+  if (META_WINDOW_ALLOWS_LEFT_RESIZE (frame->window))
+    flags |= META_FRAME_ALLOWS_LEFT_RESIZE;
+
+  if (META_WINDOW_ALLOWS_RIGHT_RESIZE (frame->window))
+    flags |= META_FRAME_ALLOWS_RIGHT_RESIZE;
+
   if (meta_window_appears_focused (frame->window))
     flags |= META_FRAME_HAS_FOCUS;
 
@@ -291,11 +303,20 @@ meta_frame_get_flags (MetaFrame *frame)
   if (META_WINDOW_MAXIMIZED (frame->window))
     flags |= META_FRAME_MAXIMIZED;
 
-  if (META_WINDOW_TILED_LEFT (frame->window))
+  if (META_WINDOW_TILED_LEFT (frame->window) ||
+      META_WINDOW_TILED_ULC (frame->window) ||
+      META_WINDOW_TILED_LLC (frame->window))
     flags |= META_FRAME_TILED_LEFT;
 
-  if (META_WINDOW_TILED_RIGHT (frame->window))
+  if (META_WINDOW_TILED_RIGHT (frame->window) ||
+      META_WINDOW_TILED_URC (frame->window) ||
+      META_WINDOW_TILED_LRC (frame->window))
     flags |= META_FRAME_TILED_RIGHT;
+
+  if (META_WINDOW_TILED_TOP (frame->window) ||
+      META_WINDOW_TILED_BOTTOM (frame->window)) {
+    flags |= META_FRAME_MAXIMIZED;
+  }
 
   if (frame->window->fullscreen)
     flags |= META_FRAME_FULLSCREEN;
@@ -305,7 +326,7 @@ meta_frame_get_flags (MetaFrame *frame)
 
   if (frame->window->wm_state_above)
     flags |= META_FRAME_ABOVE;
-  
+
   return flags;
 }
 
