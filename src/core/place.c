@@ -88,6 +88,48 @@ northwestcmp (gconstpointer a, gconstpointer b)
     return 0;
 }
 
+static gboolean
+place_by_pointer(MetaWindow *window,
+                 MetaFrameBorders *borders,
+                 MetaPlacementMode placement_mode,
+                 int *new_x,
+                 int *new_y)
+{
+  int window_width, window_height;
+  Window root_return, child_return;
+  int root_x_return, root_y_return;
+  int win_x_return, win_y_return;
+  unsigned int mask_return;
+
+  XQueryPointer (window->display->xdisplay,
+                 window->screen->xroot,
+                 &root_return,
+                 &child_return,
+                 &root_x_return,
+                 &root_y_return,
+                 &win_x_return,
+                 &win_y_return,
+                 &mask_return);
+
+  window_width = window->frame ? window->frame->rect.width : window->rect.width;
+  window_height = window->frame ? window->frame->rect.height : window->rect.height;
+
+  if (borders) {
+    *new_x = root_x_return + borders->visible.left - window_width / 2;
+    *new_y = root_y_return + borders->visible.top  - window_height / 2;
+  }
+  else {
+    *new_x = root_x_return - window_width / 2;
+    *new_y = root_y_return - window_height / 2;
+  }
+
+  if (placement_mode == META_PLACEMENT_MODE_MANUAL)
+    window->move_after_placement = TRUE;
+
+  return TRUE;
+}
+
+
 static void
 find_next_cascade (MetaWindow *window,
                    MetaFrameBorders *borders,
@@ -660,6 +702,8 @@ meta_window_place (MetaWindow        *window,
 {
   GList *windows;
   const MetaMonitorInfo *xi;
+  MetaPlacementMode placement_mode;
+  MetaWindow *parent;
 
   /* frame member variables should NEVER be used in here, only
    * MetaFrameBorders. But remember borders == NULL
@@ -671,7 +715,9 @@ meta_window_place (MetaWindow        *window,
   meta_topic (META_DEBUG_PLACEMENT, "Placing window %s\n", window->desc);
 
   windows = NULL;
-  
+  parent = meta_display_lookup_x_window (window->display,
+                                         window->xtransient_for);
+
   switch (window->type)
     {
       /* Run placement algorithm on these. */
@@ -700,7 +746,8 @@ meta_window_place (MetaWindow        *window,
       goto done_no_constraints;
     }
   
-  if (meta_prefs_get_disable_workarounds ())
+  if (meta_prefs_get_disable_workarounds () ||
+      (parent != NULL && parent->type == META_WINDOW_DESKTOP))
     {
       switch (window->type)
         {
@@ -763,20 +810,14 @@ meta_window_place (MetaWindow        *window,
   
   if ((window->type == META_WINDOW_DIALOG ||
        window->type == META_WINDOW_MODAL_DIALOG) &&
-      window->xtransient_for != None)
+      window->xtransient_for != None &&
+      (parent != NULL && parent->type != META_WINDOW_DESKTOP))
     {
       /* Center horizontally, at top of parent vertically */
-
-      MetaWindow *parent;
-          
-      parent =
-        meta_display_lookup_x_window (window->display,
-                                      window->xtransient_for);
 
       if (parent)
         {
           int w;
-
           meta_window_get_position (parent, &x, &y);
           w = parent->rect.width;
 
@@ -825,7 +866,9 @@ meta_window_place (MetaWindow        *window,
 
       x += xi->rect.x;
       y += xi->rect.y;
-      
+
+      avoid_being_obscured_as_second_modal_dialog (window, borders, &x, &y);
+
       meta_topic (META_DEBUG_PLACEMENT, "Centered window %s on screen %d monitor %d\n",
                   window->desc, window->screen->number, xi->number);
 
@@ -865,6 +908,17 @@ meta_window_place (MetaWindow        *window,
   /* "Origin" placement algorithm */
   x = xi->rect.x;
   y = xi->rect.y;
+
+  
+  /* Placement based on pointer position */
+  placement_mode = meta_prefs_get_placement_mode();
+
+  if (placement_mode == META_PLACEMENT_MODE_POINTER ||
+      placement_mode == META_PLACEMENT_MODE_MANUAL)
+    {
+      if (place_by_pointer (window, borders, placement_mode, &x, &y))
+        goto done_check_denied_focus;
+    }
 
   if (find_first_fit (window, borders, windows,
                       xi->number,

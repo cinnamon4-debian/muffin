@@ -91,6 +91,7 @@ struct _MetaWindowActorPrivate
   gint              minimize_in_progress;
   gint              maximize_in_progress;
   gint              unmaximize_in_progress;
+  gint              tile_in_progress;
   gint              map_in_progress;
   gint              destroy_in_progress;
 
@@ -116,6 +117,10 @@ struct _MetaWindowActorPrivate
   guint             no_more_x_calls        : 1;
 
   guint             unredirected           : 1;
+
+  /* This is used to detect fullscreen windows that need to be unredirected */
+  guint             full_damage_frames_count;
+  guint             does_full_damage  : 1;
 };
 
 enum
@@ -156,6 +161,8 @@ static gboolean meta_window_actor_has_shadow (MetaWindowActor *self);
 static void meta_window_actor_clear_shape_region    (MetaWindowActor *self);
 static void meta_window_actor_clear_bounding_region (MetaWindowActor *self);
 static void meta_window_actor_clear_shadow_clip     (MetaWindowActor *self);
+
+static void check_needs_reshape (MetaWindowActor *self);
 
 G_DEFINE_TYPE (MetaWindowActor, meta_window_actor, CLUTTER_TYPE_GROUP);
 
@@ -361,7 +368,8 @@ meta_window_actor_constructed (GObject *object)
     }
 
   meta_window_actor_update_opacity (self);
-  meta_window_actor_update_shape (self);
+
+  priv->shape_region = cairo_region_create();
 }
 
 static void
@@ -974,6 +982,7 @@ meta_window_actor_effect_in_progress (MetaWindowActor *self)
 	  self->priv->maximize_in_progress ||
 	  self->priv->unmaximize_in_progress ||
 	  self->priv->map_in_progress ||
+      self->priv->tile_in_progress ||
 	  self->priv->destroy_in_progress);
 }
 
@@ -1006,6 +1015,7 @@ is_freeze_thaw_effect (gulong event)
   case META_PLUGIN_DESTROY:
   case META_PLUGIN_MAXIMIZE:
   case META_PLUGIN_UNMAXIMIZE:
+  case META_PLUGIN_TILE:
     return TRUE;
     break;
   default:
@@ -1039,6 +1049,7 @@ start_simple_effect (MetaWindowActor *self,
   case META_PLUGIN_UNMAXIMIZE:
   case META_PLUGIN_MAXIMIZE:
   case META_PLUGIN_SWITCH_WORKSPACE:
+  case META_PLUGIN_TILE:
     g_assert_not_reached ();
     break;
   }
@@ -1146,6 +1157,14 @@ meta_window_actor_effect_completed (MetaWindowActor *self,
 	priv->maximize_in_progress = 0;
       }
     break;
+  case META_PLUGIN_TILE:
+    priv->tile_in_progress--;
+    if (priv->tile_in_progress < 0)
+      {
+    g_warning ("Error in tile accounting.");
+    priv->tile_in_progress = 0;
+      }
+    break;
   case META_PLUGIN_SWITCH_WORKSPACE:
     g_assert_not_reached ();
     break;
@@ -1192,34 +1211,31 @@ LOCAL_SYMBOL gboolean
 meta_window_actor_should_unredirect (MetaWindowActor *self)
 {
   MetaWindow *metaWindow = meta_window_actor_get_meta_window (self);
-  MetaScreen *screen = meta_window_get_screen (metaWindow);
   MetaWindowActorPrivate *priv = self->priv;
 
-  if (meta_window_is_override_redirect (metaWindow) && priv->opacity == 0xff && !priv->argb32)
-    {
-      int screen_width, screen_height;
-      MetaRectangle window_rect;
-      meta_screen_get_size (screen, &screen_width, &screen_height);
-      meta_window_get_outer_rect (metaWindow, &window_rect);
+  if (meta_window_requested_dont_bypass_compositor (metaWindow))
+    return FALSE;
 
-      if (window_rect.x == 0 && window_rect.y == 0 &&
-          window_rect.width == screen_width && window_rect.height == screen_height)
-           return TRUE;
-      else
-        {
-          int num_monitors = meta_screen_get_n_monitors (screen);
-          int i;
-          MetaRectangle monitor_rect;
+  if (priv->opacity != 0xff)
+    return FALSE;
 
-          for (i = 0; i < num_monitors; i++)
-            {
-              meta_screen_get_monitor_geometry (screen , i, &monitor_rect);
-              if (monitor_rect.x == window_rect.x && monitor_rect.y == window_rect.y &&
-                  monitor_rect.width == window_rect.width && monitor_rect.height == window_rect.height)
-                    return TRUE;
-            }
-        }
-    }
+  if (metaWindow->has_shape)
+    return FALSE;
+
+  if (priv->argb32 && !meta_window_requested_bypass_compositor (metaWindow))
+    return FALSE;
+
+  if (!meta_window_is_monitor_sized (metaWindow))
+    return FALSE;
+
+  if (meta_window_requested_bypass_compositor (metaWindow))
+    return TRUE;
+
+  if (meta_window_is_override_redirect (metaWindow))
+    return TRUE;
+
+  if (priv->does_full_damage)
+    return TRUE;
 
   return FALSE;
 }
@@ -1238,7 +1254,7 @@ meta_window_actor_set_redirected (MetaWindowActor *self, gboolean state)
       meta_error_trap_push (display);
       XCompositeRedirectWindow (xdisplay, xwin, CompositeRedirectManual);
       meta_error_trap_pop (display);
-      meta_window_actor_queue_create_pixmap (self);
+      meta_window_actor_detach (self);
       self->priv->unredirected = FALSE;
     }
   else
@@ -1467,6 +1483,35 @@ meta_window_actor_unmaximize (MetaWindowActor   *self,
                                            new_rect->width, new_rect->height))
     {
       self->priv->unmaximize_in_progress--;
+      meta_window_actor_thaw (self);
+    }
+}
+
+LOCAL_SYMBOL void
+meta_window_actor_tile (MetaWindowActor    *self,
+                        MetaRectangle      *old_rect,
+                        MetaRectangle      *new_rect)
+{
+  MetaCompScreen *info = meta_screen_get_compositor_data (self->priv->screen);
+
+  /* The window has already been resized (in order to compute new_rect),
+   * which by side effect caused the actor to be resized. Restore it to the
+   * old size and position */
+  clutter_actor_set_position (CLUTTER_ACTOR (self), old_rect->x, old_rect->y);
+  clutter_actor_set_size (CLUTTER_ACTOR (self), old_rect->width, old_rect->height);
+
+  self->priv->tile_in_progress++;
+  meta_window_actor_freeze (self);
+
+  if (!info->plugin_mgr ||
+      !meta_plugin_manager_event_maximize (info->plugin_mgr,
+                                           self,
+                                           META_PLUGIN_TILE,
+                                           new_rect->x, new_rect->y,
+                                           new_rect->width, new_rect->height))
+
+    {
+      self->priv->tile_in_progress--;
       meta_window_actor_thaw (self);
     }
 }
@@ -1979,11 +2024,29 @@ meta_window_actor_process_damage (MetaWindowActor    *self,
                                   XDamageNotifyEvent *event)
 {
   MetaWindowActorPrivate *priv = self->priv;
+  MetaCompScreen *info = meta_screen_get_compositor_data (priv->screen);
 
   priv->received_damage = TRUE;
 
+  if (meta_window_is_fullscreen (priv->window) && g_list_last (info->windows)->data == self && !priv->unredirected)
+    {
+      MetaRectangle window_rect;
+      meta_window_get_outer_rect (priv->window, &window_rect);
+
+      if (window_rect.x == event->area.x &&
+          window_rect.y == event->area.y &&
+          window_rect.width == event->area.width &&
+          window_rect.height == event->area.height)
+        priv->full_damage_frames_count++;
+      else
+        priv->full_damage_frames_count = 0;
+
+      if (priv->full_damage_frames_count >= 100)
+        priv->does_full_damage = TRUE;
+    }
+
   /* Drop damage event for unredirected windows */
-  if (self->priv->unredirected)
+  if (priv->unredirected)
     return;
 
   if (is_frozen (self))

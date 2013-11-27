@@ -29,7 +29,8 @@
 #include <meta/common.h>
 #include <meta/types.h>
 #include <pango/pango-font.h>
-#include <gdesktop-enums.h>
+#include <libcinnamon-desktop/cdesktop-enums.h>
+#include <X11/XKBlib.h>
 
 /* Keep in sync with GSettings schemas! */
 typedef enum
@@ -68,8 +69,13 @@ typedef enum
   META_PREF_WORKSPACES_ONLY_ON_PRIMARY,
   META_PREF_NO_TAB_POPUP,
   META_PREF_DRAGGABLE_BORDER_WIDTH,
-  META_PREF_EDGE_TILE_THRESHOLD,
-  META_PREF_EDGE_DETACH_THRESHOLD
+  META_PREF_TILE_HUD_THRESHOLD,
+  META_PREF_RESIZE_THRESHOLD,
+  META_PREF_SNAP_MODIFIER,
+  META_PREF_LEGACY_SNAP,
+  META_PREF_INVERT_WORKSPACE_FLIP_DIRECTION,
+  META_PREF_TILE_MAXIMIZE,
+  META_PREF_PLACEMENT_MODE
 } MetaPreference;
 
 typedef void (* MetaPrefsChangedFunc) (MetaPreference pref,
@@ -90,8 +96,8 @@ const char* meta_preference_to_string (MetaPreference pref);
 MetaVirtualModifier         meta_prefs_get_mouse_button_mods  (void);
 guint                       meta_prefs_get_mouse_button_resize (void);
 guint                       meta_prefs_get_mouse_button_menu  (void);
-GDesktopFocusMode           meta_prefs_get_focus_mode         (void);
-GDesktopFocusNewWindows     meta_prefs_get_focus_new_windows  (void);
+CDesktopFocusMode           meta_prefs_get_focus_mode         (void);
+CDesktopFocusNewWindows     meta_prefs_get_focus_new_windows  (void);
 gboolean                    meta_prefs_get_attach_modal_dialogs (void);
 gboolean                    meta_prefs_get_raise_on_click     (void);
 const char*                 meta_prefs_get_theme              (void);
@@ -117,9 +123,9 @@ const char*                 meta_prefs_get_terminal_command   (void);
 void                        meta_prefs_get_button_layout (MetaButtonLayout *button_layout);
 
 /* Double, right, middle click can be configured to any titlebar meta-action */
-GDesktopTitlebarAction      meta_prefs_get_action_double_click_titlebar (void);
-GDesktopTitlebarAction      meta_prefs_get_action_middle_click_titlebar (void);
-GDesktopTitlebarAction      meta_prefs_get_action_right_click_titlebar (void);
+CDesktopTitlebarAction      meta_prefs_get_action_double_click_titlebar (void);
+CDesktopTitlebarAction      meta_prefs_get_action_middle_click_titlebar (void);
+CDesktopTitlebarAction      meta_prefs_get_action_right_click_titlebar (void);
 
 void meta_prefs_set_num_workspaces (int n_workspaces);
 
@@ -151,9 +157,16 @@ void     meta_prefs_set_no_tab_popup (gboolean whether);
 
 int      meta_prefs_get_draggable_border_width (void);
 
-int      meta_prefs_get_edge_tile_threshold (void);
-int      meta_prefs_get_edge_detach_threshold (void);
+int      meta_prefs_get_tile_hud_threshold (void);
+int      meta_prefs_get_resize_threshold (void);
 
+unsigned int *  meta_prefs_get_snap_modifier (void);
+
+gboolean meta_prefs_get_legacy_snap (void);
+
+gboolean meta_prefs_get_invert_flip_direction (void);
+
+gboolean meta_prefs_get_tile_maximize (void);
 
 /* XXX FIXME This should be x-macroed, but isn't yet because it would be
  * difficult (or perhaps impossible) to add the suffixes using the current
@@ -201,8 +214,14 @@ typedef enum _MetaKeyBindingAction
   META_KEYBINDING_ACTION_ACTIVATE_WINDOW_MENU,
   META_KEYBINDING_ACTION_TOGGLE_FULLSCREEN,
   META_KEYBINDING_ACTION_TOGGLE_MAXIMIZED,
-  META_KEYBINDING_ACTION_TOGGLE_TILED_LEFT,
-  META_KEYBINDING_ACTION_TOGGLE_TILED_RIGHT,
+  META_KEYBINDING_ACTION_PUSH_TILE_LEFT,
+  META_KEYBINDING_ACTION_PUSH_TILE_RIGHT,
+  META_KEYBINDING_ACTION_PUSH_TILE_UP,
+  META_KEYBINDING_ACTION_PUSH_TILE_DOWN,
+  META_KEYBINDING_ACTION_PUSH_SNAP_LEFT,
+  META_KEYBINDING_ACTION_PUSH_SNAP_RIGHT,
+  META_KEYBINDING_ACTION_PUSH_SNAP_UP,
+  META_KEYBINDING_ACTION_PUSH_SNAP_DOWN,
   META_KEYBINDING_ACTION_TOGGLE_ABOVE,
   META_KEYBINDING_ACTION_MAXIMIZE,
   META_KEYBINDING_ACTION_UNMAXIMIZE,
@@ -315,10 +334,10 @@ void meta_prefs_get_overlay_binding (MetaKeyCombo *combo);
 
 gboolean           meta_prefs_get_visual_bell      (void);
 gboolean           meta_prefs_bell_is_audible      (void);
-GDesktopVisualBellType meta_prefs_get_visual_bell_type (void);
+CDesktopVisualBellType meta_prefs_get_visual_bell_type (void);
+
+MetaPlacementMode meta_prefs_get_placement_mode (void);
 
 #endif
-
-
 
 

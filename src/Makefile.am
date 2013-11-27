@@ -132,6 +132,8 @@ libmuffin_la_SOURCES =				\
 	inlinepixbufs.h				\
 	ui/frames.c				\
 	ui/frames.h				\
+    ui/tile-hud.c           \
+    ui/tile-hud.h           \
 	ui/menu.c				\
 	ui/menu.h				\
 	ui/metaaccellabel.c			\
@@ -225,7 +227,7 @@ typelib_DATA = Meta-$(api_version).typelib
 INTROSPECTION_GIRS = Meta-$(api_version).gir
 
 Meta-$(api_version).gir: libmuffin.la
-@META_GIR@_INCLUDES = GObject-2.0 GDesktopEnums-3.0 Gdk-3.0 Gtk-3.0 Clutter-1.0 xlib-2.0 xfixes-4.0
+@META_GIR@_INCLUDES = GObject-2.0 CDesktopEnums-3.0 Gdk-3.0 Gtk-3.0 Clutter-1.0 xlib-2.0 xfixes-4.0
 @META_GIR@_PACKAGES = clutter-1.0 gtk+-3.0
 @META_GIR@_CFLAGS = $(INCLUDES)
 @META_GIR@_LIBS = libmuffin.la
@@ -262,16 +264,6 @@ desktopfiles_in_files=muffin.desktop.in
 desktopfiles_files=$(desktopfiles_in_files:.desktop.in=.desktop)
 desktopfiles_DATA = $(desktopfiles_files)
 
-wmpropertiesdir=$(datadir)/gnome/wm-properties
-wmproperties_in_files=muffin-wm.desktop.in
-wmproperties_files=$(wmproperties_in_files:.desktop.in=.desktop)
-wmproperties_DATA = $(wmproperties_files)
-
-xmldir       = @GNOME_KEYBINDINGS_KEYSDIR@
-xml_in_files = \
-        50-muffin-windows.xml.in
-xml_DATA     = $(xml_in_files:.xml.in=.xml)
-
 gsettings_SCHEMAS = org.cinnamon.muffin.gschema.xml
 @INTLTOOL_XML_NOMERGE_RULE@
 @GSETTINGS_RULES@
@@ -288,7 +280,6 @@ BUILT_SOURCES = inlinepixbufs.h
 CLEANFILES =					\
 	inlinepixbufs.h				\
 	muffin.desktop				\
-	muffin-wm.desktop			\
 	org.cinnamon.muffin.gschema.xml		\
 	$(xml_DATA)				\
 	$(muffin_built_sources)			\
@@ -303,10 +294,8 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libmuffin.pc muffin-plugins.pc
 
 EXTRA_DIST=$(desktopfiles_files) 	\
-	$(wmproperties_files)		\
 	$(IMAGES) 			\
 	$(desktopfiles_in_files)	\
-	$(wmproperties_in_files)	\
 	$(xml_in_files)			\
 	org.cinnamon.muffin.gschema.xml.in \
 	muffin-schemas.convert \

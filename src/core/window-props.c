@@ -646,7 +646,6 @@ reload_net_wm_state (MetaWindow    *window,
                   "the property in the first place\n");
     return;
   }
-
   window->shaded = FALSE;
   window->maximized_horizontally = FALSE;
   window->maximized_vertically = FALSE;
@@ -688,7 +687,8 @@ reload_net_wm_state (MetaWindow    *window,
         window->wm_state_demands_attention = TRUE;
       else if (value->v.atom_list.atoms[i] == window->display->atom__NET_WM_STATE_STICKY)
         window->on_all_workspaces_requested = TRUE;
-
+      else if (value->v.atom_list.atoms[i] == window->display->atom__NET_WM_STATE_TILED)
+        window->tile_after_placement = TRUE;
       ++i;
     }
 
@@ -1593,31 +1593,55 @@ reload_gtk_theme_variant (MetaWindow    *window,
 }
 
 static void
-reload_gtk_hide_titlebar_when_maximized (MetaWindow    *window,
-                                         MetaPropValue *value,
-                                         gboolean       initial)
+reload_bypass_compositor (MetaWindow    *window,
+                          MetaPropValue *value,
+                          gboolean       initial)
 {
   gboolean requested_value = FALSE;
-  gboolean current_value = window->hide_titlebar_when_maximized;
+  gboolean current_value = window->bypass_compositor;
 
   if (value->type != META_PROP_VALUE_INVALID)
     {
       requested_value = ((int) value->v.cardinal == 1);
-      meta_verbose ("Request to hide titlebar for window %s.\n", window->desc);
+      meta_verbose ("Request to bypass compositor for window %s.\n", window->desc);
     }
 
   if (requested_value == current_value)
     return;
 
-  window->hide_titlebar_when_maximized = requested_value;
-
-  if (META_WINDOW_MAXIMIZED (window))
+  if (requested_value && window->dont_bypass_compositor)
     {
-      meta_window_queue (window, META_QUEUE_MOVE_RESIZE);
-
-      if (window->frame)
-        meta_ui_update_frame_style (window->screen->ui, window->frame->xwindow);
+      meta_verbose ("Setting bypass and dont compositor for same window (%s) makes no sense, ignoring.\n", window->desc);
+      return;
     }
+
+  window->bypass_compositor = requested_value;
+}
+
+static void
+reload_dont_bypass_compositor (MetaWindow    *window,
+                               MetaPropValue *value,
+                               gboolean       initial)
+{
+  gboolean requested_value = FALSE;
+  gboolean current_value = window->dont_bypass_compositor;
+
+  if (value->type != META_PROP_VALUE_INVALID)
+    {
+      requested_value = ((int) value->v.cardinal == 1);
+      meta_verbose ("Request to don't bypass compositor for window %s.\n", window->desc);
+    }
+
+  if (requested_value == current_value)
+    return;
+
+  if (requested_value && window->bypass_compositor)
+    {
+      meta_verbose ("Setting bypass and dont compositor for same window (%s) makes no sense, ignoring.\n", window->desc);
+      return;
+    }
+
+  window->dont_bypass_compositor = requested_value;
 }
 
 #define RELOAD_STRING(var_name, propname) \
@@ -1697,8 +1721,7 @@ meta_display_init_window_prop_hooks (MetaDisplay *display)
     { display->atom__NET_WM_STATE,     META_PROP_VALUE_ATOM_LIST, reload_net_wm_state,     TRUE,  FALSE },
     { display->atom__MOTIF_WM_HINTS,   META_PROP_VALUE_MOTIF_HINTS, reload_mwm_hints,      TRUE,  FALSE },
     { XA_WM_TRANSIENT_FOR,             META_PROP_VALUE_WINDOW,    reload_transient_for,    TRUE,  FALSE },
-    { display->atom__GTK_THEME_VARIANT, META_PROP_VALUE_UTF8,     reload_gtk_theme_variant, TRUE, FALSE },
-    { display->atom__GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED, META_PROP_VALUE_CARDINAL,     reload_gtk_hide_titlebar_when_maximized, TRUE, FALSE },
+    { display->atom__GTK_THEME_VARIANT, META_PROP_VALUE_UTF8,     reload_gtk_theme_variant, TRUE, FALSE },    
     { display->atom__GTK_APPLICATION_ID,               META_PROP_VALUE_UTF8,         reload_gtk_application_id,               TRUE, FALSE },
     { display->atom__GTK_UNIQUE_BUS_NAME,              META_PROP_VALUE_UTF8,         reload_gtk_unique_bus_name,              TRUE, FALSE },
     { display->atom__GTK_APPLICATION_OBJECT_PATH,      META_PROP_VALUE_UTF8,         reload_gtk_application_object_path,      TRUE, FALSE },
@@ -1716,6 +1739,8 @@ meta_display_init_window_prop_hooks (MetaDisplay *display)
     { display->atom__NET_WM_WINDOW_TYPE, META_PROP_VALUE_INVALID, reload_net_wm_window_type,  FALSE, TRUE },
     { display->atom__NET_WM_STRUT,         META_PROP_VALUE_INVALID, reload_struts,            FALSE, FALSE },
     { display->atom__NET_WM_STRUT_PARTIAL, META_PROP_VALUE_INVALID, reload_struts,            FALSE, FALSE },
+    { display->atom__NET_WM_BYPASS_COMPOSITOR, META_PROP_VALUE_CARDINAL,  reload_bypass_compositor, FALSE, FALSE },
+    { display->atom__NET_WM_DONT_BYPASS_COMPOSITOR, META_PROP_VALUE_CARDINAL,  reload_dont_bypass_compositor, FALSE, FALSE },
     { 0 },
   };
 

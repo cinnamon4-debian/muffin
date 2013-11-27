@@ -68,6 +68,8 @@ static void
 meta_workspace_finalize (GObject *object)
 {
   /* Actual freeing done in meta_workspace_remove() for now */
+  
+  G_OBJECT_CLASS (meta_workspace_parent_class)->finalize (object);
 }
 
 static void
@@ -183,7 +185,7 @@ meta_workspace_new (MetaScreen *screen)
   workspace->screen_edges = NULL;
   workspace->monitor_edges = NULL;
   workspace->list_containing_self = g_list_prepend (NULL, workspace);
-
+  workspace->snapped_windows = NULL;
   workspace->builtin_struts = NULL;
   workspace->all_struts = NULL;
 
@@ -1048,6 +1050,51 @@ meta_workspace_set_builtin_struts (MetaWorkspace *workspace,
   meta_workspace_invalidate_work_area (workspace);
 }
 
+void
+meta_workspace_update_snapped_windows (MetaWorkspace *workspace)
+{
+  GList *window_list = meta_workspace_list_windows (workspace);
+  GList *old = workspace->snapped_windows;
+  workspace->snapped_windows = NULL;
+
+  GList *iter;
+  MetaWindow *window;
+
+  for (iter = window_list; iter != NULL; iter = iter->next)
+  {
+    window = (MetaWindow *) iter->data;
+    if (window->tile_type == META_WINDOW_TILE_TYPE_SNAPPED)
+        workspace->snapped_windows = g_list_prepend (workspace->snapped_windows, window);
+  }
+  g_list_free (old);
+  g_list_free (window_list);
+
+  meta_workspace_recalc_for_snapped_windows (workspace);
+}
+
+gboolean
+meta_workspace_has_snapped_windows (MetaWorkspace *workspace)
+{
+    return g_list_length (workspace->snapped_windows) > 0;
+}
+
+void
+meta_workspace_recalc_for_snapped_windows (MetaWorkspace *workspace)
+{
+    GList *window_list = meta_workspace_list_windows (workspace);
+    GList *iter;
+    MetaWindow *win;
+    for (iter = window_list; iter != NULL; iter = iter->next)
+    {
+        win = META_WINDOW (iter->data);
+        if (meta_window_get_maximized (win))
+        {
+            meta_window_queue(win, META_QUEUE_MOVE_RESIZE);
+        }
+    }
+    g_list_free (window_list);
+}
+
 LOCAL_SYMBOL void
 meta_workspace_get_work_area_for_monitor (MetaWorkspace *workspace,
                                           int            which_monitor,
@@ -1204,7 +1251,7 @@ meta_workspace_focus_default_window (MetaWorkspace *workspace,
     }
 
 
-  if (meta_prefs_get_focus_mode () == G_DESKTOP_FOCUS_MODE_CLICK ||
+  if (meta_prefs_get_focus_mode () == C_DESKTOP_FOCUS_MODE_CLICK ||
       !workspace->screen->display->mouse_mode)
     focus_ancestor_or_top_window (workspace, not_this_one, timestamp);
   else
@@ -1242,9 +1289,9 @@ meta_workspace_focus_default_window (MetaWorkspace *workspace,
                                                      window);
             }
         }
-      else if (meta_prefs_get_focus_mode () == G_DESKTOP_FOCUS_MODE_SLOPPY)
+      else if (meta_prefs_get_focus_mode () == C_DESKTOP_FOCUS_MODE_SLOPPY)
         focus_ancestor_or_top_window (workspace, not_this_one, timestamp);
-      else if (meta_prefs_get_focus_mode () == G_DESKTOP_FOCUS_MODE_MOUSE)
+      else if (meta_prefs_get_focus_mode () == C_DESKTOP_FOCUS_MODE_MOUSE)
         {
           meta_topic (META_DEBUG_FOCUS,
                       "Setting focus to no_focus_window, since no valid "
@@ -1299,7 +1346,7 @@ focus_ancestor_or_top_window (MetaWorkspace *workspace,
           meta_window_focus (ancestor, timestamp);
 
           /* Also raise the window if in click-to-focus */
-          if (meta_prefs_get_focus_mode () == G_DESKTOP_FOCUS_MODE_CLICK)
+          if (meta_prefs_get_focus_mode () == C_DESKTOP_FOCUS_MODE_CLICK)
             meta_window_raise (ancestor);
 
           return;
@@ -1308,7 +1355,7 @@ focus_ancestor_or_top_window (MetaWorkspace *workspace,
 
   window = meta_stack_get_default_focus_window (workspace->screen->stack,
                                                 workspace,
-                                                NULL);
+                                                not_this_one);
 
   if (window)
     {
@@ -1318,7 +1365,7 @@ focus_ancestor_or_top_window (MetaWorkspace *workspace,
       meta_window_focus (window, timestamp);
 
       /* Also raise the window if in click-to-focus */
-      if (meta_prefs_get_focus_mode () == G_DESKTOP_FOCUS_MODE_CLICK)
+      if (meta_prefs_get_focus_mode () == C_DESKTOP_FOCUS_MODE_CLICK)
         meta_window_raise (window);
     }
   else
