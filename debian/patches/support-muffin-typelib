@@ -6,9 +6,11 @@ Author: Nicolas Bourdaud <nicolas.bourdaud@gmail.com>
 Origin: Debian
 Forwarded: not-needed
 Last-Update: 2013-06-16
---- a/src/Makefile.am
-+++ b/src/Makefile.am
-@@ -217,12 +217,12 @@
+Index: muffin/src/Makefile.am
+===================================================================
+--- muffin.orig/src/Makefile.am	2013-11-27 13:31:54.745601206 +0100
++++ muffin/src/Makefile.am	2013-11-27 13:31:54.741601368 +0100
+@@ -219,12 +219,12 @@
  # by plugins.  If you're writing a plugin, use g-ir-compiler --add-include-path
  # and g-ir-compiler --includedir.
  girdir = $(pkglibdir)
@@ -23,8 +25,8 @@ Last-Update: 2013-06-16
 +INTROSPECTION_GIRS = $(gir_DATA)
  
  Meta-$(api_version).gir: libmuffin.la
- @META_GIR@_INCLUDES = GObject-2.0 GDesktopEnums-3.0 Gdk-3.0 Gtk-3.0 Clutter-1.0 xlib-2.0 xfixes-4.0
-@@ -235,6 +235,17 @@
+ @META_GIR@_INCLUDES = GObject-2.0 CDesktopEnums-3.0 Gdk-3.0 Gtk-3.0 Clutter-1.0 xlib-2.0 xfixes-4.0
+@@ -237,6 +237,17 @@
  	$(filter %.c,$(libmuffin_la_SOURCES))
  @META_GIR@_SCANNERFLAGS = --warn-all --warn-error
  
