@@ -30,7 +30,7 @@ Build-Depends: debhelper (>= 9),
                libxrender-dev,
                libxt-dev,
                zenity
-Standards-Version: 3.9.4
+Standards-Version: 3.9.5
 Vcs-Git: git://anonscm.debian.org/pkg-cinnamon/muffin.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-cinnamon/muffin.git
 Homepage: https://github.com/linuxmint/muffin
