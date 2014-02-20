@@ -23,6 +23,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_compositor_sync_screen_size@Base 1.1.0
  meta_compositor_sync_stack@Base 1.1.0
  meta_compositor_sync_window_geometry@Base 1.1.0
+ meta_compositor_tile_window@Base 2.0.5
  meta_compositor_unmanage_screen@Base 1.1.0
  meta_compositor_unmaximize_window@Base 1.1.0
  meta_compositor_update_workspace_geometry@Base 1.1.0
@@ -87,7 +88,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_frame_flags_get_type@Base 1.1.0
  meta_frame_type_get_type@Base 1.1.0
  meta_frame_type_to_string@Base 1.1.0
-  (optional)meta_frames_get_type@Base 1.1.0
+ (optional)meta_frames_get_type@Base 1.1.0
  meta_free_gslist_and_elements@Base 1.1.0
  meta_g_utf8_strndup@Base 1.1.0
  meta_get_background_actor_for_screen@Base 1.1.0
@@ -134,6 +135,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  (optional)meta_module_get_type@Base 1.1.0
  meta_motion_direction_get_type@Base 1.1.0
  (optional)meta_pango_font_desc_get_text_height@Base 1.1.0
+ meta_placement_mode_get_type@Base 2.0.5
  meta_plugin_begin_modal@Base 1.1.0
  meta_plugin_debug_mode@Base 1.1.0
  meta_plugin_destroy_completed@Base 1.1.0
@@ -150,6 +152,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_plugin_minimize_completed@Base 1.1.0
  meta_plugin_running@Base 1.1.0
  meta_plugin_switch_workspace_completed@Base 1.1.0
+ meta_plugin_tile_completed@Base 2.0.5
  meta_plugin_type_register@Base 1.1.0
  meta_plugin_unmaximize_completed@Base 1.1.0
  meta_pop_no_msg_prefix@Base 1.1.0
@@ -171,16 +174,16 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_prefs_get_disable_workarounds@Base 1.1.0
  meta_prefs_get_draggable_border_width@Base 1.1.0
  meta_prefs_get_dynamic_workspaces@Base 1.1.0
- meta_prefs_get_edge_detach_threshold@Base 1.8.1
- meta_prefs_get_edge_tile_threshold@Base 1.8.1
  meta_prefs_get_edge_tiling@Base 1.1.0
  meta_prefs_get_focus_mode@Base 1.1.0
  meta_prefs_get_focus_new_windows@Base 1.1.0
  meta_prefs_get_force_fullscreen@Base 1.1.0
  meta_prefs_get_gnome_accessibility@Base 1.1.0
  meta_prefs_get_gnome_animations@Base 1.1.0
+ meta_prefs_get_invert_flip_direction@Base 2.0.5
  meta_prefs_get_keybinding_action@Base 1.1.0
  meta_prefs_get_keybindings@Base 1.1.0
+ meta_prefs_get_legacy_snap@Base 2.0.5
  meta_prefs_get_live_hidden_windows@Base 1.1.0
  meta_prefs_get_mouse_button_menu@Base 1.1.0
  meta_prefs_get_mouse_button_mods@Base 1.1.0
@@ -188,8 +191,13 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_prefs_get_no_tab_popup@Base 1.1.0
  meta_prefs_get_num_workspaces@Base 1.1.0
  meta_prefs_get_overlay_binding@Base 1.1.0
+ meta_prefs_get_placement_mode@Base 2.0.5
  meta_prefs_get_raise_on_click@Base 1.1.0
+ meta_prefs_get_resize_threshold@Base 2.0.5
+ meta_prefs_get_snap_modifier@Base 2.0.5
  meta_prefs_get_theme@Base 1.1.0
+ meta_prefs_get_tile_hud_threshold@Base 2.0.5
+ meta_prefs_get_tile_maximize@Base 2.0.5
  meta_prefs_get_titlebar_font@Base 1.1.0
  meta_prefs_get_visual_bell@Base 1.1.0
  meta_prefs_get_visual_bell_type@Base 1.1.0
@@ -257,6 +265,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_screen_set_cm_selection@Base 1.1.0
  meta_screen_set_compositor_data@Base 1.1.0
  meta_screen_show_desktop@Base 1.1.0
+ meta_screen_toggle_desktop@Base 2.0.5
  meta_screen_ungrab_all_keys@Base 1.1.0
  meta_screen_unset_cm_selection@Base 1.1.0
  meta_screen_unshow_desktop@Base 1.1.0
@@ -321,6 +330,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_foreach_transient@Base 1.1.0
  meta_window_get_client_machine@Base 1.1.0
  meta_window_get_compositor_private@Base 1.1.0
+ meta_window_get_current_zone@Base 2.0.5
  meta_window_get_description@Base 1.1.0
  meta_window_get_display@Base 1.1.0
  meta_window_get_frame@Base 1.1.0
@@ -344,9 +354,13 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_get_rect@Base 1.1.0
  meta_window_get_role@Base 1.1.0
  meta_window_get_screen@Base 1.1.0
+ meta_window_get_size_limits@Base 2.0.5
  meta_window_get_stable_sequence@Base 1.1.0
  meta_window_get_startup_id@Base 1.1.0
  meta_window_get_tile_match@Base 1.1.0
+ meta_window_get_tile_restrictions@Base 2.0.5
+ meta_window_get_tile_side@Base 2.0.5
+ meta_window_get_tile_type@Base 2.0.5
  meta_window_get_title@Base 1.1.0
  meta_window_get_transient_for@Base 1.1.0
  meta_window_get_transient_for_as_xid@Base 1.1.0
@@ -368,6 +382,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_is_hidden@Base 1.1.0
  meta_window_is_mapped@Base 1.1.0
  meta_window_is_modal@Base 1.1.0
+ meta_window_is_monitor_sized@Base 2.0.5
  meta_window_is_on_all_workspaces@Base 1.1.0
  meta_window_is_on_primary_monitor@Base 1.1.0
  meta_window_is_override_redirect@Base 1.1.0
@@ -378,18 +393,23 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_lower@Base 1.1.0
  meta_window_maximize@Base 1.1.0
  meta_window_minimize@Base 1.1.0
+ meta_window_mouse_on_edge@Base 2.0.5
  meta_window_move@Base 1.1.0
  meta_window_move_frame@Base 1.1.0
  meta_window_move_resize@Base 1.1.0
  meta_window_move_resize_frame@Base 1.1.0
  meta_window_move_to_monitor@Base 1.1.0
  meta_window_raise@Base 1.1.0
+ meta_window_requested_bypass_compositor@Base 2.0.5
+ meta_window_requested_dont_bypass_compositor@Base 2.0.5
  meta_window_resize@Base 1.1.0
  meta_window_set_compositor_private@Base 1.1.0
  meta_window_set_demands_attention@Base 1.1.0
+ meta_window_set_tile_type@Base 2.0.5
  meta_window_showing_on_its_workspace@Base 1.1.0
  meta_window_shutdown_group@Base 1.1.0
  meta_window_stick@Base 1.1.0
+ meta_window_tile_type_get_type@Base 2.0.5
  meta_window_toplevel_is_mapped@Base 1.1.0
  meta_window_type_get_type@Base 1.1.0
  meta_window_unmaximize@Base 1.1.0
@@ -403,7 +423,10 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_workspace_get_screen@Base 1.1.0
  meta_workspace_get_type@Base 1.1.0
  meta_workspace_get_work_area_all_monitors@Base 1.1.0
+ meta_workspace_has_snapped_windows@Base 2.0.5
  meta_workspace_index@Base 1.1.0
  meta_workspace_list_windows@Base 1.1.0
+ meta_workspace_recalc_for_snapped_windows@Base 2.0.5
  meta_workspace_set_builtin_struts@Base 1.1.0
+ meta_workspace_update_snapped_windows@Base 2.0.5
  meta_workspace_update_window_hints@Base 1.1.0
