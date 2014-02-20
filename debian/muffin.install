@@ -1,4 +1,3 @@
-usr/bin
+usr/bin/muffin*
 usr/lib/*/muffin/plugins
-usr/share/applications
-usr/share/gnome
+usr/share/applications/muffin*

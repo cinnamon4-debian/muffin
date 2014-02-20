@@ -9,6 +9,7 @@ muffin (2.0.5-1~1) UNRELEASED; urgency=low
   * Bump Standards-Version to 3.9.5.
   * Add new build-dependencies.
   * Refresh patch: support-muffin-typelib
+  * Update install files.
 
  -- Maximiliano Curia <maxy@debian.org>  Wed, 27 Nov 2013 13:31:20 +0100
 
