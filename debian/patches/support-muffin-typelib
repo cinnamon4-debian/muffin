@@ -8,8 +8,8 @@ Forwarded: not-needed
 Last-Update: 2013-06-16
 Index: muffin/src/Makefile.am
 ===================================================================
---- muffin.orig/src/Makefile.am	2013-11-27 13:31:54.745601206 +0100
-+++ muffin/src/Makefile.am	2013-11-27 13:31:54.741601368 +0100
+--- muffin.orig/src/Makefile.am	2014-02-20 09:00:03.142980561 +0100
++++ muffin/src/Makefile.am	2014-02-20 09:04:08.496978637 +0100
 @@ -219,12 +219,12 @@
  # by plugins.  If you're writing a plugin, use g-ir-compiler --add-include-path
  # and g-ir-compiler --includedir.
@@ -31,7 +31,7 @@ Index: muffin/src/Makefile.am
  @META_GIR@_SCANNERFLAGS = --warn-all --warn-error
  
 +Meta-3.0.gir: libmuffin.la
-+Meta_3_0_gir_INCLUDES = GObject-2.0 GDesktopEnums-3.0 Gdk-3.0 Gtk-3.0 Clutter-1.0 xlib-2.0 xfixes-4.0
++Meta_3_0_gir_INCLUDES = GObject-2.0 CDesktopEnums-3.0 Gdk-3.0 Gtk-3.0 Clutter-1.0 xlib-2.0 xfixes-4.0
 +Meta_3_0_gir_PACKAGES = clutter-1.0 gtk+-3.0
 +Meta_3_0_gir_CFLAGS = $(INCLUDES)
 +Meta_3_0_gir_LIBS = libmuffin.la
