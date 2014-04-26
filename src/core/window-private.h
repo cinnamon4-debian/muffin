@@ -418,6 +418,9 @@ struct _MetaWindow
    */
   MetaRectangle rect;
 
+  gboolean has_custom_frame_extents;
+  GtkBorder custom_frame_extents;
+
   /* The geometry to restore when we unmaximize.  The position is in
    * root window coords, even if there's a frame, which contrasts with
    * window->rect above.  Note that this gives the position and size
@@ -561,6 +564,8 @@ void        meta_window_shade              (MetaWindow  *window,
                                             guint32      timestamp);
 void        meta_window_unshade            (MetaWindow  *window,
                                             guint32      timestamp);
+void        meta_window_adjust_opacity     (MetaWindow  *window,
+                                            gboolean     increase);
 void        meta_window_change_workspace   (MetaWindow  *window,
                                             MetaWorkspace *workspace);
 void        meta_window_stick              (MetaWindow  *window);
@@ -784,5 +789,8 @@ guint meta_window_get_current_zone (MetaWindow   *window,
 void       meta_window_set_tile_type (MetaWindow *window,
                                       MetaWindowTileType  type);
 MetaWindowTileType  meta_window_get_tile_type (MetaWindow *window);
+
+gboolean meta_window_is_client_decorated (MetaWindow *window);
+
 
 #endif

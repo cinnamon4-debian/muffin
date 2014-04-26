@@ -44,6 +44,7 @@
 #include "window-props.h"
 #include "constraints.h"
 #include "muffin-enum-types.h"
+#include <clutter/clutter.h>
 
 #include <X11/Xatom.h>
 #include <X11/Xlibint.h> /* For display->resource_mask */
@@ -55,6 +56,7 @@
 #endif
 #include <X11/XKBlib.h>
 #include <X11/extensions/Xcomposite.h>
+#include <gdk/gdkx.h>
 
 static int destroying_windows_disallowed = 0;
 
@@ -2069,12 +2071,12 @@ set_net_wm_state (MetaWindow *window)
       data[i] = window->display->atom__NET_WM_STATE_SKIP_TASKBAR;
       ++i;
     }
-  if (window->maximized_horizontally)
+  if (window->maximized_horizontally || window->tile_type != META_WINDOW_TILE_TYPE_NONE)
     {
       data[i] = window->display->atom__NET_WM_STATE_MAXIMIZED_HORZ;
       ++i;
     }
-  if (window->maximized_vertically)
+  if (window->maximized_vertically || window->tile_type != META_WINDOW_TILE_TYPE_NONE)
     {
       data[i] = window->display->atom__NET_WM_STATE_MAXIMIZED_VERT;
       ++i;
@@ -3401,7 +3403,8 @@ meta_window_hide (MetaWindow *window)
        * focus the default window for the active workspace (this scenario
        * arises when we are switching workspaces).
        */
-      if (my_workspace == window->screen->active_workspace)
+      if (window->type == META_WINDOW_MODAL_DIALOG &&
+          my_workspace == window->screen->active_workspace)
         not_this_one = window;
 
       meta_workspace_focus_default_window (window->screen->active_workspace,
@@ -3592,7 +3595,7 @@ meta_topic (META_DEBUG_WINDOW_OPS,
     meta_window_save_rect (window);
 
   meta_window_set_tile_type (window, META_WINDOW_TILE_TYPE_NONE);
-  window->tile_mode = META_TILE_NONE;
+  window->tile_mode = META_TILE_MAXIMIZE;
   notify_tile_type (window);
   normalize_tile_state (window);
 
@@ -3658,8 +3661,9 @@ meta_window_maximize (MetaWindow        *window,
 	  return;
 	}
 
-      if (window->tile_mode != META_TILE_NONE ||
-          window->last_tile_mode != META_TILE_NONE)
+      if ((window->tile_mode != META_TILE_NONE ||
+          window->last_tile_mode != META_TILE_NONE) &&
+    	  window->tile_mode != META_TILE_MAXIMIZE)
         {
           saved_rect = &window->saved_rect;
 
@@ -3889,10 +3893,6 @@ meta_window_can_tile_side_by_side (MetaWindow *window)
   monitor = meta_screen_get_current_monitor (window->screen);
   meta_window_get_work_area_for_monitor (window, monitor->number, &tile_area);
 
-  /* Do not allow tiling in portrait orientation */
-  if (tile_area.height > tile_area.width)
-    return FALSE;
-
   tile_area.width /= 2;
 
   meta_frame_calc_borders (window->frame, &borders);
@@ -3916,10 +3916,6 @@ meta_window_can_tile_top_bottom (MetaWindow *window)
 
   monitor = meta_screen_get_current_monitor (window->screen);
   meta_window_get_work_area_for_monitor (window, monitor->number, &tile_area);
-
-  /* Do not allow tiling in portrait orientation */
-  if (tile_area.height > tile_area.width)
-    return FALSE;
 
   tile_area.height /= 2;
 
@@ -4366,6 +4362,37 @@ meta_window_unshade (MetaWindow  *window,
 
       set_net_wm_state (window);
     }
+}
+
+#define OPACITY_STEP 32
+
+LOCAL_SYMBOL void
+meta_window_adjust_opacity (MetaWindow   *window,
+                            gboolean      increase)
+{
+  ClutterActor *actor = CLUTTER_ACTOR (meta_window_get_compositor_private (window));
+
+  gint current_opacity, new_opacity;
+
+  current_opacity = clutter_actor_get_opacity (actor);
+
+  if (increase) {
+    new_opacity = MIN (current_opacity + OPACITY_STEP, 255);
+  } else {
+    new_opacity = MAX (current_opacity - OPACITY_STEP, 0);
+  }
+
+  if (new_opacity != current_opacity) {
+    clutter_actor_set_opacity (actor, (guint8) new_opacity);
+  }
+}
+
+void
+meta_window_reset_opacity (MetaWindow *window)
+{
+    ClutterActor *actor = CLUTTER_ACTOR (meta_window_get_compositor_private (window));
+
+    clutter_actor_set_opacity (actor, 255);
 }
 
 static gboolean
@@ -5742,7 +5769,18 @@ meta_window_get_outer_rect (const MetaWindow *window,
       rect->height -= borders.invisible.top  + borders.invisible.bottom;
     }
   else
-    *rect = window->rect;
+    {
+      *rect = window->rect;
+
+      if (window->has_custom_frame_extents)
+        {
+          const GtkBorder *extents = &window->custom_frame_extents;
+          rect->x += extents->left;
+          rect->y += extents->top;
+          rect->width -= extents->left + extents->right;
+          rect->height -= extents->top + extents->bottom;
+        }
+    }
 }
 
 MetaSide
@@ -9055,12 +9093,15 @@ update_move (MetaWindow  *window,
                                                                      y,
                                                                      meta_prefs_get_tile_hud_threshold ());
 
+      int scale;
+      scale = CLAMP ((int)(clutter_backend_get_resolution (clutter_get_default_backend ()) / 96.0), 1, 4);
+
       guint edge_zone = meta_window_get_current_zone (window,
                                                       monitor->rect,
                                                       work_area,
                                                       x,
                                                       y,
-                                                      HUD_WIDTH);
+                                                      HUD_WIDTH * scale);
 
       switch (edge_zone) {
         case ZONE_0:
@@ -10193,6 +10234,24 @@ meta_window_same_client (MetaWindow *window,
 
   return ((window->xwindow & ~resource_mask) ==
           (other_window->xwindow & ~resource_mask));
+}
+
+/**
+ * meta_window_is_client_decorated:
+ *
+ * Check if if the window has decorations drawn by the client.
+ * (window->decorated refers only to whether we should add decorations)
+ */
+gboolean
+meta_window_is_client_decorated (MetaWindow *window)
+{
+  /* Currently the implementation here is hackish -
+   * has_custom_frame_extents() is set if _GTK_FRAME_EXTENTS is set
+   * to any value even 0. GTK+ always sets _GTK_FRAME_EXTENTS for
+   * client-side-decorated window, even if the value is 0 because
+   * the window is maxized and has no invisible borders or shadows.
+   */
+  return window->has_custom_frame_extents;
 }
 
 LOCAL_SYMBOL void

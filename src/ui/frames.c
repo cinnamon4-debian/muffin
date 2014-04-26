@@ -338,8 +338,10 @@ meta_frames_finalize (GObject *object)
   g_hash_table_destroy (frames->text_heights);
 
   invalidate_all_caches (frames);
-  if (frames->invalidate_cache_timeout_id)
+  if (frames->invalidate_cache_timeout_id) {
     g_source_remove (frames->invalidate_cache_timeout_id);
+    frames->invalidate_cache_timeout_id = 0;
+  }
   
   g_assert (g_hash_table_size (frames->frames) == 0);
   g_hash_table_destroy (frames->frames);
@@ -1134,6 +1136,12 @@ redraw_control (MetaFrames *frames,
   invalidate_cache (frames, frame);
 }
 
+enum
+{
+    MOUSEWHEEL_UP   = 4,
+    MOUSEWHEEL_DOWN = 5
+};
+
 static gboolean
 meta_frame_titlebar_event (MetaUIFrame    *frame,
                            GdkEventButton *event,
@@ -1236,6 +1244,48 @@ meta_frame_titlebar_event (MetaUIFrame    *frame,
                                   event->button,
                                   event->time);
       break;
+
+    /* These last 3 are CDesktopTitlebarScrollAction but
+       since we're working with ints, it doesn't matter */
+
+    case C_DESKTOP_TITLEBAR_SCROLL_ACTION_SHADE:
+      {
+        meta_core_get (display, frame->xwindow,
+                       META_CORE_GET_FRAME_FLAGS, &flags,
+                       META_CORE_GET_END);
+        
+        if (flags & META_FRAME_ALLOWS_SHADE)
+          {
+            if (event->button == MOUSEWHEEL_DOWN &&
+                flags & META_FRAME_SHADED)
+              meta_core_unshade (display,
+                                 frame->xwindow,
+                                 event->time);
+            else if (event->button == MOUSEWHEEL_UP &&
+                     flags & ~META_FRAME_SHADED)
+              meta_core_shade (display,
+                               frame->xwindow,
+                               event->time);
+          }
+      }
+      break;
+
+    case C_DESKTOP_TITLEBAR_SCROLL_ACTION_OPACITY:
+      {
+        if (event->button == MOUSEWHEEL_UP) {
+            meta_core_adjust_opacity (display,
+                                      frame->xwindow,
+                                      TRUE); /* TRUE = increase */
+        } else {
+            meta_core_adjust_opacity (display,
+                                      frame->xwindow,
+                                      FALSE); /* decrease */
+        }
+      }
+      break;
+
+    case C_DESKTOP_TITLEBAR_SCROLL_ACTION_NONE:
+      break;
     }
   
   return TRUE;
@@ -1265,6 +1315,15 @@ meta_frame_right_click_event(MetaUIFrame     *frame,
 {
   int action = meta_prefs_get_action_right_click_titlebar();
   
+  return meta_frame_titlebar_event (frame, event, action);
+}
+
+static gboolean
+meta_frame_scroll_wheel_event (MetaUIFrame     *frame,
+                               GdkEventButton  *event)
+{
+  int action = meta_prefs_get_action_scroll_wheel_titlebar();
+
   return meta_frame_titlebar_event (frame, event, action);
 }
 
@@ -1528,6 +1587,11 @@ meta_frames_button_press_event (GtkWidget      *widget,
                                    event->x_root,
                                    event->y_root);
         }
+    }
+  else if (control == META_FRAME_CONTROL_TITLE &&
+           (event->button == 4 || event->button == 5))
+    {
+      return meta_frame_scroll_wheel_event (frame, event);
     }
   else if (event->button == 2)
     {
@@ -2055,8 +2119,10 @@ populate_cache (MetaFrames *frames,
         piece->pixmap = generate_pixmap (frames, frame, &piece->rect);
     }
   
-  if (frames->invalidate_cache_timeout_id)
+  if (frames->invalidate_cache_timeout_id) {
     g_source_remove (frames->invalidate_cache_timeout_id);
+    frames->invalidate_cache_timeout_id = 0;
+  }
   
   frames->invalidate_cache_timeout_id = g_timeout_add (1000, invalidate_cache_timeout, frames);
 
@@ -2506,6 +2572,8 @@ control_rect (MetaFrameControl control,
 }
 
 #define TOP_RESIZE_HEIGHT 4
+#define CORNER_SIZE_MULT 2
+
 static MetaFrameControl
 get_control (MetaFrames *frames,
              MetaUIFrame *frame,
@@ -2597,8 +2665,8 @@ get_control (MetaFrames *frames,
    * in case of overlap.
    */
 
-  if (y >= (fgeom.height - fgeom.borders.total.bottom) &&
-      x >= (fgeom.width - fgeom.borders.total.right))
+  if (y >= (fgeom.height - fgeom.borders.total.bottom * CORNER_SIZE_MULT) &&
+      x >= (fgeom.width - fgeom.borders.total.right * CORNER_SIZE_MULT))
     {
       if ((has_vert && has_horiz) || (has_bottom && has_right))
         return META_FRAME_CONTROL_RESIZE_SE;
@@ -2607,8 +2675,8 @@ get_control (MetaFrames *frames,
       else if (has_right)
         return META_FRAME_CONTROL_RESIZE_E;
     }
-  else if (y >= (fgeom.height - fgeom.borders.total.bottom) &&
-           x <= fgeom.borders.total.left)
+  else if (y >= (fgeom.height - fgeom.borders.total.bottom * CORNER_SIZE_MULT) &&
+           x <= fgeom.borders.total.left * CORNER_SIZE_MULT)
     {
       if ((has_vert && has_horiz) || (has_bottom && has_left))
         return META_FRAME_CONTROL_RESIZE_SW;
@@ -2617,8 +2685,8 @@ get_control (MetaFrames *frames,
       else if (has_left)
         return META_FRAME_CONTROL_RESIZE_W;
     }
-  else if (y < (fgeom.borders.invisible.top) &&
-           x <= fgeom.borders.total.left && has_north_resize)
+  else if (y < (fgeom.borders.invisible.top * CORNER_SIZE_MULT) &&
+           (x <= fgeom.borders.total.left * CORNER_SIZE_MULT) && has_north_resize)
     {
       if ((has_vert && has_horiz) || (has_top && has_left))
         return META_FRAME_CONTROL_RESIZE_NW;
@@ -2627,8 +2695,8 @@ get_control (MetaFrames *frames,
       else if (has_left)
         return META_FRAME_CONTROL_RESIZE_W;
     }
-  else if (y < (fgeom.borders.invisible.top) &&
-           x >= fgeom.width - fgeom.borders.total.right && has_north_resize)
+  else if (y < (fgeom.borders.invisible.top * CORNER_SIZE_MULT) &&
+           x >= (fgeom.width - fgeom.borders.total.right  * CORNER_SIZE_MULT) && has_north_resize)
     {
       if ((has_vert && has_horiz) || (has_top && has_right))
         return META_FRAME_CONTROL_RESIZE_NE;
