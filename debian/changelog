@@ -17,6 +17,7 @@ muffin (2.2.1-1) UNRELEASED; urgency=low
   [ Margarita Manterola ]
   * New upstream release muffin_2.2.1.
   * Add patch: update-cogl-support to support libcogl-dev 1.18
+  * Add patch: gtk-state-flags to support new GTK_STATE_FLAG values.
 
  -- Margarita Manterola <marga@debian.org>  Sat, 26 Apr 2014 14:17:39 +0200
 

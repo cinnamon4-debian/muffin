@@ -1,0 +1,15 @@
+Index: muffin/src/ui/theme.c
+===================================================================
+--- muffin.orig/src/ui/theme.c	2014-04-26 18:28:24.827858616 +0200
++++ muffin/src/ui/theme.c	2014-04-26 18:29:06.381342080 +0200
+@@ -6441,6 +6441,10 @@
+       return "FOCUSED";
+     case GTK_STATE_FLAG_BACKDROP:
+       return "BACKDROP";
++    case GTK_STATE_FLAG_LINK:
++      return "LINK";
++    case GTK_STATE_FLAG_VISITED:
++      return "VISITED";
+ #if GTK_MAJOR_VERSION > 3 || (GTK_MAJOR_VERSION == 3 && GTK_MINOR_VERSION >= 7)
+     case GTK_STATE_FLAG_DIR_LTR:
+       return "DIR_LTR";
