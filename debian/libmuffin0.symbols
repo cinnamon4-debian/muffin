@@ -164,6 +164,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_prefs_get_action_double_click_titlebar@Base 1.1.0
  meta_prefs_get_action_middle_click_titlebar@Base 1.1.0
  meta_prefs_get_action_right_click_titlebar@Base 1.1.0
+ meta_prefs_get_action_scroll_wheel_titlebar@Base 2.2.1
  meta_prefs_get_application_based@Base 1.1.0
  meta_prefs_get_attach_modal_dialogs@Base 1.1.0
  meta_prefs_get_auto_raise@Base 1.1.0
@@ -377,6 +378,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_has_focus@Base 1.1.0
  meta_window_is_ancestor_of_transient@Base 1.1.0
  meta_window_is_attached_dialog@Base 1.1.0
+ meta_window_is_client_decorated@Base 2.2.1
  meta_window_is_demanding_attention@Base 1.7.1
  meta_window_is_fullscreen@Base 1.1.0
  meta_window_is_hidden@Base 1.1.0
@@ -402,6 +404,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_raise@Base 1.1.0
  meta_window_requested_bypass_compositor@Base 2.0.5
  meta_window_requested_dont_bypass_compositor@Base 2.0.5
+ meta_window_reset_opacity@Base 2.2.1
  meta_window_resize@Base 1.1.0
  meta_window_set_compositor_private@Base 1.1.0
  meta_window_set_demands_attention@Base 1.1.0
