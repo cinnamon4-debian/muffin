@@ -6,6 +6,7 @@ muffin (2.2.1-1) UNRELEASED; urgency=low
 
   [ Maximiliano Curia ]
   * New upstream release muffin_2.0.5
+  * New maintainers (Closes: #745908)
   * Bump Standards-Version to 3.9.5.
   * Add new build-dependencies.
   * Refresh patch: support-muffin-typelib
