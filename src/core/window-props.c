@@ -284,6 +284,35 @@ reload_kwm_win_icon (MetaWindow    *window,
 }
 
 static void
+reload_gtk_frame_extents (MetaWindow    *window,
+                          MetaPropValue *value,
+                          gboolean       initial)
+{
+  if (value->type != META_PROP_VALUE_INVALID)
+    {
+      if (value->v.cardinal_list.n_cardinals != 4)
+        {
+          meta_verbose ("_GTK_FRAME_EXTENTS on %s has %d values instead of 4\n",
+                        window->desc, value->v.cardinal_list.n_cardinals);
+        }
+      else
+        {
+          GtkBorder *extents = &window->custom_frame_extents;
+
+          window->has_custom_frame_extents = TRUE;
+          extents->left   = (int)value->v.cardinal_list.cardinals[0];
+          extents->right  = (int)value->v.cardinal_list.cardinals[1];
+          extents->top    = (int)value->v.cardinal_list.cardinals[2];
+          extents->bottom = (int)value->v.cardinal_list.cardinals[3];
+        }
+    }
+  else
+    {
+      window->has_custom_frame_extents = FALSE;
+    }
+}
+
+static void
 reload_struts (MetaWindow    *window,
                MetaPropValue *value,
                gboolean       initial)
@@ -663,11 +692,21 @@ reload_net_wm_state (MetaWindow    *window,
   i = 0;
   while (i < value->v.atom_list.n_atoms)
     {
+      if (value->v.atom_list.atoms[i] == window->display->atom__NET_WM_STATE_TILED)
+        window->tile_after_placement = TRUE;
+      ++i;
+    }
+
+  i = 0;
+  while (i < value->v.atom_list.n_atoms)
+    {
       if (value->v.atom_list.atoms[i] == window->display->atom__NET_WM_STATE_SHADED)
         window->shaded = TRUE;
-      else if (value->v.atom_list.atoms[i] == window->display->atom__NET_WM_STATE_MAXIMIZED_HORZ)
+      else if (value->v.atom_list.atoms[i] == window->display->atom__NET_WM_STATE_MAXIMIZED_HORZ &&
+               !window->tile_after_placement)
         window->maximize_horizontally_after_placement = TRUE;
-      else if (value->v.atom_list.atoms[i] == window->display->atom__NET_WM_STATE_MAXIMIZED_VERT)
+      else if (value->v.atom_list.atoms[i] == window->display->atom__NET_WM_STATE_MAXIMIZED_VERT &&
+               !window->tile_after_placement)
         window->maximize_vertically_after_placement = TRUE;
       else if (value->v.atom_list.atoms[i] == window->display->atom__NET_WM_STATE_HIDDEN)
         window->minimize_after_placement = TRUE;
@@ -687,8 +726,6 @@ reload_net_wm_state (MetaWindow    *window,
         window->wm_state_demands_attention = TRUE;
       else if (value->v.atom_list.atoms[i] == window->display->atom__NET_WM_STATE_STICKY)
         window->on_all_workspaces_requested = TRUE;
-      else if (value->v.atom_list.atoms[i] == window->display->atom__NET_WM_STATE_TILED)
-        window->tile_after_placement = TRUE;
       ++i;
     }
 
@@ -1725,9 +1762,10 @@ meta_display_init_window_prop_hooks (MetaDisplay *display)
     { display->atom__GTK_APPLICATION_ID,               META_PROP_VALUE_UTF8,         reload_gtk_application_id,               TRUE, FALSE },
     { display->atom__GTK_UNIQUE_BUS_NAME,              META_PROP_VALUE_UTF8,         reload_gtk_unique_bus_name,              TRUE, FALSE },
     { display->atom__GTK_APPLICATION_OBJECT_PATH,      META_PROP_VALUE_UTF8,         reload_gtk_application_object_path,      TRUE, FALSE },
-    { display->atom__GTK_WINDOW_OBJECT_PATH,           META_PROP_VALUE_UTF8,         reload_gtk_window_object_path,           TRUE, FALSE },
-    { display->atom__GTK_APP_MENU_OBJECT_PATH,         META_PROP_VALUE_UTF8,         reload_gtk_app_menu_object_path,         TRUE, FALSE },
+    { display->atom__GTK_WINDOW_OBJECT_PATH,           META_PROP_VALUE_UTF8,         reload_gtk_window_object_path,           TRUE, FALSE },    
+    { display->atom__GTK_APP_MENU_OBJECT_PATH,         META_PROP_VALUE_UTF8,         reload_gtk_app_menu_object_path,         TRUE, FALSE },    
     { display->atom__GTK_MENUBAR_OBJECT_PATH,          META_PROP_VALUE_UTF8,         reload_gtk_menubar_object_path,          TRUE, FALSE },
+    { display->atom__GTK_FRAME_EXTENTS,                META_PROP_VALUE_CARDINAL_LIST,reload_gtk_frame_extents,                TRUE, FALSE },
     { display->atom__NET_WM_USER_TIME_WINDOW, META_PROP_VALUE_WINDOW, reload_net_wm_user_time_window, TRUE, FALSE },
     { display->atom_WM_STATE,          META_PROP_VALUE_INVALID,  NULL,                     FALSE, FALSE },
     { display->atom__NET_WM_ICON,      META_PROP_VALUE_INVALID,  reload_net_wm_icon,       FALSE, FALSE },

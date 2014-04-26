@@ -338,6 +338,8 @@ set_supported_hint (MetaScreen *screen)
 #include <meta/atomnames.h>
 #undef item
 #undef EWMH_ATOMS_ONLY
+
+    screen->display->atom__GTK_FRAME_EXTENTS,
   };
 
   XChangeProperty (screen->display->xdisplay, screen->xroot,
@@ -1057,26 +1059,36 @@ meta_screen_free (MetaScreen *screen,
   XDestroyWindow (screen->display->xdisplay,
                   screen->wm_sn_selection_window);
   
-  if (screen->work_area_later != 0)
+  if (screen->work_area_later != 0) {
     g_source_remove (screen->work_area_later);
+    screen->work_area_later = 0;
+  }
 
   if (screen->monitor_infos)
     g_free (screen->monitor_infos);
 
-  if (screen->tile_preview_timeout_id)
+  if (screen->tile_preview_timeout_id) {
     g_source_remove (screen->tile_preview_timeout_id);
+    screen->tile_preview_timeout_id = 0;
+  }
 
   if (screen->tile_preview)
     meta_tile_preview_free (screen->tile_preview);
 
-  if (screen->tile_hud_timeout_id)
+  if (screen->tile_hud_timeout_id) {
     g_source_remove (screen->tile_hud_timeout_id);
+    screen->tile_hud_timeout_id = 0;
+  }
 
-  if (screen->tile_hud_fade_timeout_id)
+  if (screen->tile_hud_fade_timeout_id) {
     g_source_remove (screen->tile_hud_fade_timeout_id);
+    screen->tile_hud_fade_timeout_id = 0;
+  }
 
-  if (screen->snap_osd_timeout_id)
+  if (screen->snap_osd_timeout_id) {
     g_source_remove (screen->snap_osd_timeout_id);
+    screen->snap_osd_timeout_id = 0;
+  }
 
   if (screen->tile_hud)
     meta_tile_hud_free (screen->tile_hud);
@@ -2090,8 +2102,10 @@ meta_screen_tile_preview_update (MetaScreen *screen,
     }
   else
     {
-      if (screen->tile_preview_timeout_id > 0)
+      if (screen->tile_preview_timeout_id > 0) {
         g_source_remove (screen->tile_preview_timeout_id);
+        screen->tile_preview_timeout_id = 0;
+      }
 
       meta_screen_tile_preview_update_timeout ((gpointer)screen);
     }
@@ -2100,8 +2114,10 @@ meta_screen_tile_preview_update (MetaScreen *screen,
 LOCAL_SYMBOL void
 meta_screen_tile_preview_hide (MetaScreen *screen)
 {
-  if (screen->tile_preview_timeout_id > 0)
+  if (screen->tile_preview_timeout_id > 0) {
     g_source_remove (screen->tile_preview_timeout_id);
+    screen->tile_preview_timeout_id = 0;
+  }
 
   if (screen->tile_preview)
     meta_tile_preview_hide (screen->tile_preview);
@@ -2234,10 +2250,14 @@ meta_screen_tile_hud_update (MetaScreen *screen,
 LOCAL_SYMBOL void
 meta_screen_tile_hud_hide (MetaScreen *screen)
 {
-  if (screen->tile_hud_timeout_id > 0)
+  if (screen->tile_hud_timeout_id > 0) {
     g_source_remove (screen->tile_hud_timeout_id);
-  if (screen->tile_hud_fade_timeout_id > 0)
+    screen->tile_hud_timeout_id = 0;
+  }
+  if (screen->tile_hud_fade_timeout_id > 0) {
     g_source_remove (screen->tile_hud_fade_timeout_id);
+    screen->tile_hud_fade_timeout_id = 0;
+  }
 
   if (screen->tile_hud)
     meta_tile_hud_hide (screen->tile_hud);
@@ -3316,8 +3336,21 @@ meta_screen_toggle_desktop (MetaScreen *screen,
 {
   if (screen->active_workspace->showing_desktop)
     {
+      /*
+       * dirty hack because the actual window to be focused after unshowing the desktop
+       * lost its focus when showing desktop
+       * and therefore is second in the MRU list
+       */
+      MetaWindow *not_this_one;
+      not_this_one = meta_stack_get_default_focus_window(screen->stack, 
+                                                         screen->active_workspace,
+                                                         NULL);
       meta_screen_unshow_desktop (screen);
-      meta_workspace_focus_default_window (screen->active_workspace, 
+      meta_workspace_focus_default_window (screen->active_workspace,
+                                           not_this_one,
+                                           timestamp);
+      // If there's only one window, make sure it gets the focus
+      meta_workspace_focus_default_window (screen->active_workspace,
                                            NULL,
                                            timestamp);
     }
