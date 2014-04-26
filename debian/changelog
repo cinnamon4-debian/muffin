@@ -1,4 +1,4 @@
-muffin (2.0.5-1~1) UNRELEASED; urgency=low
+muffin (2.2.1-1) UNRELEASED; urgency=low
 
   [ Nicolas Bourdaud ]
   * New upstream: muffin_1.8.2
@@ -13,7 +13,10 @@ muffin (2.0.5-1~1) UNRELEASED; urgency=low
   * Update symbols file.
   * Add abi-compliance-checker info.
 
- -- Maximiliano Curia <maxy@debian.org>  Wed, 27 Nov 2013 13:31:20 +0100
+  [ Margarita Manterola ]
+  * New upstream release.
+
+ -- Margarita Manterola <marga@debian.org>  Sat, 26 Apr 2014 14:17:39 +0200
 
 muffin (1.7.3-1) unstable; urgency=low
 
