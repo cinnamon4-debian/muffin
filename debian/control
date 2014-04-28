@@ -5,6 +5,7 @@ Maintainer: Maximiliano Curia <maxy@debian.org>
 Uploaders: Margarita Manterola <marga@debian.org>
 Build-Depends: debhelper (>= 9),
                dh-autoreconf,
+               dh-acc,
                gnome-doc-utils (>= 0.8),
                gnome-pkg-tools (>= 0.10),
                gobject-introspection (>= 0.9.12-5~),
