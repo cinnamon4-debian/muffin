@@ -37,8 +37,8 @@ Build-Depends: debhelper (>= 9),
                zenity
 Standards-Version: 3.9.5
 Homepage: http://cinnamon.linuxmint.com/
-Vcs-Browser: http://anonscm.debian.org/gitweb/?p=collab-maint/cinnamon/muffin.git
-Vcs-Git: git://anonscm.debian.org/collab-maint/cinnamon/muffin.git
+Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-cinnamon/muffin.git
+Vcs-Git: git://anonscm.debian.org/pkg-cinnamon/muffin.git
 
 Package: muffin
 Architecture: any
