@@ -2,6 +2,7 @@ muffin (2.2.3-1~) UNRELEASED; urgency=medium
 
   * Update VCS fields.
   * New upstream release.
+  * Remove patch: update-cogl-support adapted upstream.
 
  -- Maximiliano Curia <maxy@debian.org>  Fri, 16 May 2014 20:17:36 +0200
 

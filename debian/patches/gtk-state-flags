@@ -1,8 +1,8 @@
 Index: muffin/src/ui/theme.c
 ===================================================================
---- muffin.orig/src/ui/theme.c	2014-04-26 18:28:24.827858616 +0200
-+++ muffin/src/ui/theme.c	2014-04-26 18:29:06.381342080 +0200
-@@ -6441,6 +6441,10 @@
+--- muffin.orig/src/ui/theme.c	2014-05-17 12:16:45.734160322 +0200
++++ muffin/src/ui/theme.c	2014-05-17 12:16:45.730160482 +0200
+@@ -6453,6 +6453,10 @@
        return "FOCUSED";
      case GTK_STATE_FLAG_BACKDROP:
        return "BACKDROP";
