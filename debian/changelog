@@ -1,6 +1,7 @@
 muffin (2.2.5-1~) UNRELEASED; urgency=medium
 
   * New upstream release.
+  * Update symbol file.
 
  -- Margarita Manterola <marga@debian.org>  Sat, 24 May 2014 15:54:44 +0200
 

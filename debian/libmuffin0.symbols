@@ -186,6 +186,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_prefs_get_keybindings@Base 1.1.0
  meta_prefs_get_legacy_snap@Base 2.0.5
  meta_prefs_get_live_hidden_windows@Base 1.1.0
+ meta_prefs_get_min_win_opacity@Base 2.2.5
  meta_prefs_get_mouse_button_menu@Base 1.1.0
  meta_prefs_get_mouse_button_mods@Base 1.1.0
  meta_prefs_get_mouse_button_resize@Base 1.1.0
