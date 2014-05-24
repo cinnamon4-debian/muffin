@@ -53,6 +53,7 @@
 #define KEY_GNOME_CURSOR_THEME "cursor-theme"
 #define KEY_GNOME_CURSOR_SIZE "cursor-size"
 
+#define KEY_MIN_WINDOW_OPACITY "min-window-opacity"
 #define KEY_WS_NAMES_GNOME "workspace-names"
 #define KEY_OVERLAY_KEY "overlay-key"
 #define KEY_LIVE_HIDDEN_WINDOWS "live-hidden-windows"
@@ -102,6 +103,7 @@ static int   draggable_border_width = 10;
 static int tile_hud_threshold = 150;
 static int resize_threshold = 24;
 static int ui_scale = 1;
+static int min_window_opacity = 0;
 static gboolean resize_with_right_button = FALSE;
 static gboolean edge_tiling = FALSE;
 static gboolean force_fullscreen = TRUE;
@@ -128,6 +130,7 @@ static gboolean update_binding         (MetaKeyPref *binding,
 static gboolean update_key_binding     (const char  *key,
                                         gchar      **strokes);
 static gboolean update_workspace_names (void);
+static void update_min_win_opacity (void);
 
 static void settings_changed (GSettings      *settings,
                               gchar          *key,
@@ -890,7 +893,7 @@ update_ui_scale (GdkScreen *screen, gpointer data)
   g_value_init (&value, G_TYPE_INT);
 
   gdk_screen_get_setting (screen, "gdk-window-scaling-factor", &value);
-  ui_scale = g_value_get_int (&value);
+  ui_scale = MAX (g_value_get_int (&value), 1); // Never let it be 0;
 }
 
 
@@ -947,13 +950,16 @@ meta_prefs_init (void)
 
   GdkDisplay *display = gdk_display_get_default();
 
-  g_signal_connect_swapped (gdk_display_get_default_screen (display), "monitors-changed",
-                            G_CALLBACK (update_ui_scale), NULL);
+  g_signal_connect (gdk_display_get_default_screen (display), "monitors-changed",
+                    G_CALLBACK (update_ui_scale), NULL);
+  g_signal_connect (gdk_display_get_default_screen (display), "size-changed",
+                    G_CALLBACK (update_ui_scale), NULL);
 
   update_ui_scale (gdk_display_get_default_screen (display), NULL);
 
   init_bindings ();
   init_workspace_names ();
+  update_min_win_opacity ();
 }
 
 static gboolean
@@ -1107,11 +1113,18 @@ settings_changed (GSettings *settings,
   /* String array, handled separately */
   if (strcmp (key, KEY_WORKSPACE_NAMES) == 0)
     {
-      if (update_workspace_names ());
+      if (update_workspace_names ())
         queue_changed (META_PREF_WORKSPACE_NAMES);
       return;
     }
   
+  if (strcmp (key, KEY_MIN_WINDOW_OPACITY) == 0)
+    {
+      update_min_win_opacity ();
+      queue_changed (META_PREF_MIN_WIN_OPACITY);
+      return;
+    }
+
   if (strcmp(schema, SCHEMA_CINNAMON) == 0)
     return;
 
@@ -1814,6 +1827,9 @@ meta_preference_to_string (MetaPreference pref)
     case META_PREF_PLACEMENT_MODE:
       return "PLACEMENT_MODE";
 
+    case META_PREF_MIN_WIN_OPACITY:
+      return "MIN_WIN_OPACITY";
+
     }
 
   return "(unknown)";
@@ -2003,6 +2019,18 @@ update_workspace_names (void)
     g_strfreev (names);
 
   return changed;
+}
+
+static void
+update_min_win_opacity (void)
+{
+  int pct;
+  int mapped;
+
+  pct = g_settings_get_int (SETTINGS (SCHEMA_GENERAL), KEY_MIN_WINDOW_OPACITY);
+  mapped = (int)(((double)pct / 100.0) * 255.0);
+
+  min_window_opacity = CLAMP (mapped, 0, 255);
 }
 
 const char*
@@ -2469,4 +2497,10 @@ MetaPlacementMode
 meta_prefs_get_placement_mode (void)
 {
   return placement_mode;
+}
+
+gint
+meta_prefs_get_min_win_opacity (void)
+{
+  return min_window_opacity;
 }
