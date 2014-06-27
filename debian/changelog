@@ -1,3 +1,9 @@
+muffin (2.2.6-1~) UNRELEASED; urgency=medium
+
+  * New upstream release.
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Fri, 27 Jun 2014 18:48:32 +0200
+
 muffin (2.2.5-1) experimental; urgency=medium
 
   * New upstream release.
