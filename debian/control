@@ -10,7 +10,6 @@ Build-Depends: debhelper (>= 9),
                gnome-doc-utils (>= 0.8),
                gnome-pkg-tools (>= 0.10),
                gobject-introspection (>= 0.9.12-5~),
-               gsettings-desktop-schemas-dev (>= 3.3.0),
                intltool (>= 0.34.90),
                libcanberra-gtk3-dev,
                libcinnamon-desktop-dev (>= 1.0.0),
@@ -43,14 +42,13 @@ Vcs-Git: git://anonscm.debian.org/pkg-cinnamon/muffin.git
 Package: muffin
 Architecture: any
 Pre-Depends: ${misc:Pre-Depends}
-Depends: libgnome2-common,
-         muffin-common (= ${source:Version}),
+Depends: muffin-common (= ${source:Version}),
          zenity,
          ${misc:Depends},
          ${shlibs:Depends}
 Provides: x-window-manager
-Recommends: gnome-session | x-session-manager
-Suggests: gnome-control-center (>= 1:2.5.4), xdg-user-dirs
+Recommends: cinnamon-session | x-session-manager
+Suggests: cinnamon-control-center, xdg-user-dirs
 Description: lightweight window and compositing manager
  Muffin is a small window manager performing compositing as well based on
  GTK+ and Clutter and used in desktop environment such as Cinnamon.
