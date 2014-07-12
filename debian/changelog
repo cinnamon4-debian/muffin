@@ -1,5 +1,6 @@
-muffin (2.2.6-1~) UNRELEASED; urgency=medium
+muffin (2.2.6-1) experimental; urgency=medium
 
+  [ Fabio Fantoni ]
   * New upstream release.
   * debian/control:
     - removed libgnome2-common
@@ -7,7 +8,7 @@ muffin (2.2.6-1~) UNRELEASED; urgency=medium
     - gnome-session -> cinnamon-session
     - gnome-control-center -> cinnamon-control-center
 
- -- Fabio Fantoni <fantonifabio@tiscali.it>  Sat, 28 Jun 2014 14:56:28 +0200
+ -- Margarita Manterola <marga@debian.org>  Sat, 12 Jul 2014 12:42:52 +0200
 
 muffin (2.2.5-1) experimental; urgency=medium
 
