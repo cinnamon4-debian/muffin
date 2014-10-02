@@ -1,0 +1,21 @@
+commit fe8a5ac8c29989e8876f5c12d773ed522c561337
+Author: Maximiliano Curia <maxy@gnuservers.com.ar>
+Date:   Thu Oct 2 16:41:21 2014 +0200
+
+    Add GTK_STATE_FLAG_CHECKED case (gtk-3.14)
+
+diff --git a/src/ui/theme.c b/src/ui/theme.c
+index d6f7db9..42eef0f 100644
+--- a/src/ui/theme.c
++++ b/src/ui/theme.c
+@@ -6490,6 +6490,10 @@ meta_gtk_state_to_string (GtkStateFlags state)
+     case GTK_STATE_FLAG_VISITED:
+       return "VISITED";
+ #endif
++#if GTK_MAJOR_VERSION > 3 || (GTK_MAJOR_VERSION == 3 && GTK_MINOR_VERSION >= 14)
++    case GTK_STATE_FLAG_CHECKED:
++      return "CHECKED";
++#endif
+     }
+ 
+   return "<unknown>";
