@@ -1,3 +1,9 @@
+muffin (2.2.6-4~) UNRELEASED; urgency=medium
+
+  * 
+
+ -- Maximiliano Curia <maxy@debian.org>  Thu, 02 Oct 2014 17:01:41 +0200
+
 muffin (2.2.6-3) unstable; urgency=medium
 
   * Remove doc symlinks, since this causes the package to be not binNMU safe.
