@@ -1226,6 +1226,9 @@ meta_window_actor_should_unredirect (MetaWindowActor *self)
   if (!meta_window_is_monitor_sized (metaWindow))
     return FALSE;
 
+  if (!meta_prefs_get_unredirect_fullscreen_windows())
+    return FALSE;
+
   if (meta_window_requested_bypass_compositor (metaWindow))
     return TRUE;
 
@@ -1396,7 +1399,7 @@ meta_window_actor_hide (MetaWindowActor *self,
   priv = self->priv;
   info = meta_screen_get_compositor_data (priv->screen);
 
-  g_return_if_fail (priv->visible);
+  g_return_if_fail (priv->visible || (!priv->visible && meta_window_is_attached_dialog (priv->window)));
 
   priv->visible = FALSE;
 

@@ -1698,7 +1698,7 @@ meta_window_unmanage (MetaWindow  *window,
 
   if (window->display->compositor)
     {
-      if (window->visible_to_compositor)
+      if (window->visible_to_compositor || meta_window_is_attached_dialog (window))
         meta_compositor_hide_window (window->display->compositor, window,
                                      META_COMP_EFFECT_DESTROY);
 
@@ -3810,7 +3810,7 @@ normalize_tile_state (MetaWindow *window)
 }
 
 LOCAL_SYMBOL void
-meta_window_tile (MetaWindow *window, gboolean force)
+meta_window_real_tile (MetaWindow *window, gboolean force)
 {
 /* Don't do anything if no tiling is requested or we're already tiled */
   if (window->tile_mode == META_TILE_NONE || (META_WINDOW_TILED_OR_SNAPPED (window) && !force))
@@ -4129,7 +4129,7 @@ meta_window_unmaximize (MetaWindow        *window,
       window->tile_mode == META_TILE_RIGHT)
     {
       window->maximized_horizontally = FALSE;
-      meta_window_tile (window, FALSE);
+      meta_window_real_tile (window, FALSE);
       return;
     }
 
@@ -7413,8 +7413,7 @@ send_configure_notify (MetaWindow *window)
   event.xconfigure.override_redirect = False;
 
   meta_topic (META_DEBUG_GEOMETRY,
-              "Sending synthetic configure notify to %s with x: %d y: %d w: %d h: %d\n",
-              window->desc,
+              "Sending synthetic configure notify to %s with x: %d y: %d w: %d h: %d\n",              window->desc,
               event.xconfigure.x, event.xconfigure.y,
               event.xconfigure.width, event.xconfigure.height);
 
@@ -7976,6 +7975,13 @@ is_ime_popup (MetaWindow *window)
     return !deco && (icon == NULL) && is_target_name;
 }
 
+static gboolean
+is_steam (MetaWindow *window)
+{
+    return window->type == META_WINDOW_MENU &&
+           g_strcmp0 (meta_window_get_wm_class (window), "Steam") == 0;
+}
+
 LOCAL_SYMBOL void
 meta_window_recalc_window_type (MetaWindow *window)
 {
@@ -8068,13 +8074,15 @@ recalc_window_type (MetaWindow *window)
         case META_WINDOW_NORMAL:
           if (is_ime_popup (window)) {
             window->type = META_WINDOW_POPUP_MENU;
+            break;
           }
-          else
-            window->type = META_WINDOW_OVERRIDE_OTHER;
-          break;
         case META_WINDOW_DIALOG:
         case META_WINDOW_MODAL_DIALOG:
         case META_WINDOW_MENU:
+          if (is_steam (window)) {
+            window->type = META_WINDOW_POPUP_MENU;
+            break;
+          }
         case META_WINDOW_UTILITY:
           window->type = META_WINDOW_OVERRIDE_OTHER;
           break;
@@ -8519,6 +8527,13 @@ menu_callback (MetaWindowMenu *menu,
                                                           workspace_index);
           break;
 
+        case META_MENU_OP_MOVE_NEW:
+          workspace = meta_screen_append_new_workspace (window->screen, FALSE, timestamp);
+          GSettings *cinnamon = g_settings_new ("org.cinnamon");
+          g_settings_set_int (cinnamon, "number-workspaces", g_list_length (window->screen->workspaces));
+          g_object_unref (cinnamon);
+          break;
+
         case META_MENU_OP_STICK:
           meta_window_stick (window);
           break;
@@ -8594,7 +8609,7 @@ meta_window_show_menu (MetaWindow *window,
   MetaWindowMenu *menu;
   MetaWorkspaceLayout layout;
   int n_workspaces;
-  gboolean ltr;
+  // gboolean ltr;
 
   g_return_if_fail (!window->override_redirect);
 
@@ -8608,6 +8623,7 @@ meta_window_show_menu (MetaWindow *window,
   ops = META_MENU_OP_NONE;
   insensitive = META_MENU_OP_NONE;
 
+  //ops |= (META_MENU_OP_DELETE | META_MENU_OP_MINIMIZE | META_MENU_OP_MOVE | META_MENU_OP_RESIZE | META_MENU_OP_MOVE_NEW);
   ops |= (META_MENU_OP_DELETE | META_MENU_OP_MINIMIZE | META_MENU_OP_MOVE | META_MENU_OP_RESIZE);
 
   if (!meta_window_titlebar_is_onscreen (window) &&
@@ -8628,21 +8644,21 @@ meta_window_show_menu (MetaWindow *window,
                                          meta_workspace_index ( window->screen->active_workspace),
                                          &layout);
 
-      if (!window->on_all_workspaces)
-        {
-          ltr = meta_ui_get_direction() == META_UI_DIRECTION_LTR;
+      // if (!window->on_all_workspaces)
+      //   {
+      //     ltr = meta_ui_get_direction() == META_UI_DIRECTION_LTR;
 
-          if (layout.current_col > 0)
-            ops |= ltr ? META_MENU_OP_MOVE_LEFT : META_MENU_OP_MOVE_RIGHT;
-          if ((layout.current_col < layout.cols - 1) &&
-              (layout.current_row * layout.cols + (layout.current_col + 1) < n_workspaces))
-            ops |= ltr ? META_MENU_OP_MOVE_RIGHT : META_MENU_OP_MOVE_LEFT;
-          if (layout.current_row > 0)
-            ops |= META_MENU_OP_MOVE_UP;
-          if ((layout.current_row < layout.rows - 1) &&
-              ((layout.current_row + 1) * layout.cols + layout.current_col < n_workspaces))
-            ops |= META_MENU_OP_MOVE_DOWN;
-        }
+      //     if (layout.current_col > 0)
+      //       ops |= ltr ? META_MENU_OP_MOVE_LEFT : META_MENU_OP_MOVE_RIGHT;
+      //     if ((layout.current_col < layout.cols - 1) &&
+      //         (layout.current_row * layout.cols + (layout.current_col + 1) < n_workspaces))
+      //       ops |= ltr ? META_MENU_OP_MOVE_RIGHT : META_MENU_OP_MOVE_LEFT;
+      //     if (layout.current_row > 0)
+      //       ops |= META_MENU_OP_MOVE_UP;
+      //     if ((layout.current_row < layout.rows - 1) &&
+      //         ((layout.current_row + 1) * layout.cols + layout.current_col < n_workspaces))
+      //       ops |= META_MENU_OP_MOVE_DOWN;
+      //   }
 
       meta_screen_free_workspace_layout (&layout);
 
@@ -8960,7 +8976,12 @@ meta_window_get_current_zone (MetaWindow   *window,
                 zone = ZONE_6;
             break;
         case ZONE_TOP:
-            if (meta_window_can_tile_top_bottom (window))
+            if (meta_prefs_get_tile_maximize() || window->maybe_retile_maximize)
+              {
+                if (meta_window_can_tile_maximized(window))
+                    zone = ZONE_0;
+              }
+            else if (meta_window_can_tile_top_bottom (window))
                 zone = ZONE_0;
             break;
         case ZONE_BOTTOM:
@@ -9078,15 +9099,12 @@ update_move (MetaWindow  *window,
                                                                      y,
                                                                      meta_prefs_get_tile_hud_threshold ());
 
-      int scale;
-      scale = CLAMP ((int)(clutter_backend_get_resolution (clutter_get_default_backend ()) / 96.0), 1, 4);
-
       guint edge_zone = meta_window_get_current_zone (window,
                                                       monitor->rect,
                                                       work_area,
                                                       x,
                                                       y,
-                                                      HUD_WIDTH * scale);
+                                                      HUD_WIDTH * meta_prefs_get_ui_scale ());
 
       switch (edge_zone) {
         case ZONE_0:
@@ -9636,7 +9654,7 @@ update_resize (MetaWindow *window,
             window->snap_queued = window->resizing_tile_type == META_WINDOW_TILE_TYPE_SNAPPED;
             window->tile_mode = window->resize_tile_mode;
             window->custom_snap_size = TRUE;
-            meta_window_tile (window, TRUE);
+            meta_window_real_tile (window, TRUE);
         }
     }
 
@@ -9818,7 +9836,7 @@ meta_window_handle_mouse_grab_op_event (MetaWindow *window,
                   if (window->tile_mode == META_TILE_MAXIMIZE)
                     meta_window_maximize(window, META_MAXIMIZE_VERTICAL | META_MAXIMIZE_HORIZONTAL);
                   else
-                    meta_window_tile (window, FALSE);
+                    meta_window_real_tile (window, FALSE);
               }
               else if (event->xbutton.root == window->screen->xroot)
                   update_move (window,
@@ -11696,4 +11714,93 @@ meta_window_mouse_on_edge (MetaWindow *window, gint x, gint y)
           y >= BOX_BOTTOM (work_area) - EXTREME_CONSTANT - down_shift;
 
     return ret;
+}
+
+/**
+ * meta_window_can_tile:
+ * @window: a #MetaWindow
+ * @mode: the #MetaTileMode to check for
+ *
+ * Tests if @window can be tiled or snapped in the supplied
+ * tiling zone
+ *
+ * Return value: whether @window can be tiled
+ */
+
+gboolean
+meta_window_can_tile (MetaWindow *window, MetaTileMode mode)
+{
+  g_return_val_if_fail (META_IS_WINDOW (window), FALSE);
+
+  switch (mode) {
+    case META_TILE_LEFT:
+    case META_TILE_RIGHT:
+        return meta_window_can_tile_side_by_side (window);
+    case META_TILE_TOP:
+    case META_TILE_BOTTOM:
+        return meta_window_can_tile_top_bottom (window);
+    case META_TILE_ULC:
+    case META_TILE_LLC:
+    case META_TILE_URC:
+    case META_TILE_LRC:
+        return meta_window_can_tile_corner (window);
+    case META_TILE_MAXIMIZE:
+    case META_TILE_NONE:
+        return TRUE;
+    default:
+        return FALSE;
+  }
+}
+
+/**
+ * meta_window_tile:
+ * @window: a #MetaWindow
+ * @mode: the #MetaTileMode to use
+ * @snap: whether to snap the window (as opposed to simple tile)
+ *
+ * Tiles or snaps the window in the requested configuration
+ *
+ * Return value: whether or not @window was successfully tiled
+ */
+
+gboolean
+meta_window_tile (MetaWindow *window,
+                  MetaTileMode mode,
+                  gboolean snap)
+{
+    g_return_val_if_fail (META_IS_WINDOW (window), FALSE);
+
+    if (!meta_window_can_tile (window, mode))
+        return FALSE;
+
+  if (mode != META_TILE_NONE) {
+      window->last_tile_mode = window->tile_mode;
+      window->snap_queued = snap;
+      window->tile_monitor_number = window->monitor->number;
+      window->tile_mode = mode;
+      window->custom_snap_size = FALSE;
+      window->saved_maximize = FALSE;
+      /* Maximization constraints beat tiling constraints, so if the window
+       * is maximized, tiling won't have any effect unless we unmaximize it
+       * horizontally first; rather than calling meta_window_unmaximize(),
+       * we just set the flag and rely on meta_window_real_tile() syncing it to
+       * save an additional roundtrip.
+       */
+      meta_window_real_tile (window, TRUE);
+  } else {
+      window->last_tile_mode = window->tile_mode;
+      window->tile_mode = mode;
+      window->custom_snap_size = FALSE;
+      meta_window_set_tile_type (window, META_WINDOW_TILE_TYPE_NONE);
+      window->tile_monitor_number = window->saved_maximize ? window->monitor->number
+                                                           : -1;
+      if (window->saved_maximize)
+        meta_window_maximize (window, META_MAXIMIZE_VERTICAL |
+                                      META_MAXIMIZE_HORIZONTAL);
+      else
+        meta_window_unmaximize (window, META_MAXIMIZE_VERTICAL |
+                                        META_MAXIMIZE_HORIZONTAL);
+  }
+
+  return TRUE;
 }

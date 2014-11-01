@@ -1,8 +1,8 @@
 AC_PREREQ(2.50)
 
 m4_define([muffin_major_version], [2])
-m4_define([muffin_minor_version], [2])
-m4_define([muffin_micro_version], [6])
+m4_define([muffin_minor_version], [4])
+m4_define([muffin_micro_version], [0])
 
 m4_define([muffin_version],
           [muffin_major_version.muffin_minor_version.muffin_micro_version])
@@ -15,7 +15,7 @@ AC_INIT([muffin], [muffin_version],
 AC_CONFIG_SRCDIR(src/core/display.c)
 AC_CONFIG_HEADERS(config.h)
 
-AM_INIT_AUTOMAKE([1.11 no-dist-gzip dist-xz tar-ustar])
+AM_INIT_AUTOMAKE([1.11 no-dist-gzip dist-xz tar-ustar subdir-objects])
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])],)
 AM_MAINTAINER_MODE([enable])
 
@@ -82,7 +82,7 @@ MUFFIN_PC_MODULES="
    gio-2.0 >= 2.25.10
    pango >= 1.2.0
    cairo >= 1.10.0
-   cinnamon-desktop >= 1.0.0
+   cinnamon-desktop >= 2.3.0
    xcomposite >= 0.2 xfixes xrender xdamage
    $CLUTTER_PACKAGE >= 1.9.10
    cogl-1.0 >= 1.9.6

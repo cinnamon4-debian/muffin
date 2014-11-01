@@ -82,7 +82,8 @@ typedef enum
   META_MENU_OP_MOVE_RIGHT  = 1 << 14,
   META_MENU_OP_MOVE_UP     = 1 << 15,
   META_MENU_OP_MOVE_DOWN   = 1 << 16,
-  META_MENU_OP_RECOVER     = 1 << 17
+  META_MENU_OP_RECOVER     = 1 << 17,
+  META_MENU_OP_MOVE_NEW    = 1 << 18
 } MetaMenuOp;
 
 typedef struct _MetaWindowMenu MetaWindowMenu;
@@ -237,7 +238,8 @@ typedef enum
   META_MOTION_UP_LEFT = -5,
   META_MOTION_UP_RIGHT = -6,
   META_MOTION_DOWN_LEFT = -7,
-  META_MOTION_DOWN_RIGHT = -8
+  META_MOTION_DOWN_RIGHT = -8,
+  META_MOTION_NOT_EXIST_YET = -30
 } MetaMotionDirection;
 
 /* Sometimes we want to talk about sides instead of directions; note
@@ -271,6 +273,19 @@ typedef enum
   META_BUTTON_FUNCTION_UNSTICK,
   META_BUTTON_FUNCTION_LAST
 } MetaButtonFunction;
+
+typedef enum {
+  META_TILE_NONE,
+  META_TILE_LEFT,
+  META_TILE_RIGHT,
+  META_TILE_ULC,
+  META_TILE_LLC,
+  META_TILE_URC,
+  META_TILE_LRC,
+  META_TILE_TOP,
+  META_TILE_BOTTOM,
+  META_TILE_MAXIMIZE
+} MetaTileMode;
 
 typedef enum {
     META_WINDOW_TILE_TYPE_NONE,
