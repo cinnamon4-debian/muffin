@@ -5,7 +5,7 @@ lib_LTLIBRARIES = libmuffin.la
 
 SUBDIRS=wm-tester tools compositor/plugins
 
-INCLUDES=								\
+AM_CPPFLAGS=								\
 	$(MUFFIN_CFLAGS)						\
 	-I$(srcdir)							\
 	-I$(srcdir)/core						\
@@ -229,7 +229,7 @@ INTROSPECTION_GIRS = Meta-$(api_version).gir
 Meta-$(api_version).gir: libmuffin.la
 @META_GIR@_INCLUDES = GObject-2.0 CDesktopEnums-3.0 Gdk-3.0 Gtk-3.0 Clutter-1.0 xlib-2.0 xfixes-4.0
 @META_GIR@_PACKAGES = clutter-1.0 gtk+-3.0
-@META_GIR@_CFLAGS = $(INCLUDES)
+@META_GIR@_CFLAGS = $(AM_CPPFLAGS)
 @META_GIR@_LIBS = libmuffin.la
 @META_GIR@_FILES =				\
 	muffin-enum-types.h			\
@@ -268,9 +268,6 @@ gsettings_SCHEMAS = org.cinnamon.muffin.gschema.xml
 @INTLTOOL_XML_NOMERGE_RULE@
 @GSETTINGS_RULES@
 
-convertdir = $(datadir)/GConf/gsettings
-convert_DATA = muffin-schemas.convert
-
 IMAGES=stock_maximize.png stock_minimize.png stock_delete.png
 VARIABLES=stock_maximize_data $(srcdir)/stock_maximize.png \
           stock_minimize_data $(srcdir)/stock_minimize.png \
@@ -298,7 +295,6 @@ EXTRA_DIST=$(desktopfiles_files) 	\
 	$(desktopfiles_in_files)	\
 	$(xml_in_files)			\
 	org.cinnamon.muffin.gschema.xml.in \
-	muffin-schemas.convert \
 	libmuffin.pc.in \
 	muffin-plugins.pc.in  \
 	muffin-enum-types.h.in \

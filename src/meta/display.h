@@ -149,7 +149,7 @@ void meta_display_rebuild_keybindings (MetaDisplay *display);
 
 gboolean meta_display_add_custom_keybinding    (MetaDisplay         *display,
                                                 const char          *name,
-                                                const char          *binding,
+                                                const char         **bindings,
                                                 MetaKeyHandlerFunc   callback,
                                                 gpointer             user_data,
                                                 GDestroyNotify       free_data);
@@ -198,8 +198,5 @@ void meta_display_unmanage_screen (MetaDisplay *display,
 void meta_display_keybinding_action_invoke_by_code (MetaDisplay  *display,
                                                     unsigned int  keycode,
                                                     unsigned long mask);
-gboolean meta_display_get_is_overlay_key           (MetaDisplay *display,
-                                                    unsigned int keycode,
-                                                   unsigned long mask);
 
 #endif

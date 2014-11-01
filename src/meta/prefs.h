@@ -50,6 +50,7 @@ typedef enum
   META_PREF_TITLEBAR_FONT,
   META_PREF_NUM_WORKSPACES,
   META_PREF_DYNAMIC_WORKSPACES,
+  META_PREF_UNREDIRECT_FULLSCREEN_WINDOWS,
   META_PREF_APPLICATION_BASED,
   META_PREF_KEYBINDINGS,
   META_PREF_DISABLE_WORKAROUNDS,
@@ -108,6 +109,7 @@ const PangoFontDescription* meta_prefs_get_titlebar_font      (void);
 int                         meta_prefs_get_num_workspaces     (void);
 gboolean                    meta_prefs_get_workspace_cycle    (void);
 gboolean                    meta_prefs_get_dynamic_workspaces (void);
+gboolean                    meta_prefs_get_unredirect_fullscreen_windows (void);
 gboolean                    meta_prefs_get_application_based  (void);
 gboolean                    meta_prefs_get_disable_workarounds (void);
 gboolean                    meta_prefs_get_auto_raise         (void);
@@ -173,6 +175,8 @@ gboolean meta_prefs_get_tile_maximize (void);
 
 gint meta_prefs_get_min_win_opacity (void);
 
+gint meta_prefs_get_ui_scale (void);
+
 /* XXX FIXME This should be x-macroed, but isn't yet because it would be
  * difficult (or perhaps impossible) to add the suffixes using the current
  * system.  It needs some more thought, perhaps after the current system
@@ -212,7 +216,6 @@ typedef enum _MetaKeyBindingAction
   META_KEYBINDING_ACTION_TAB_POPUP_SELECT,
   META_KEYBINDING_ACTION_TAB_POPUP_CANCEL,
   META_KEYBINDING_ACTION_SHOW_DESKTOP,
-  META_KEYBINDING_ACTION_PANEL_MAIN_MENU,
   META_KEYBINDING_ACTION_PANEL_RUN_DIALOG,
   META_KEYBINDING_ACTION_TOGGLE_RECORDING,
   META_KEYBINDING_ACTION_SET_SPEW_MARK,
@@ -252,6 +255,7 @@ typedef enum _MetaKeyBindingAction
   META_KEYBINDING_ACTION_MOVE_TO_WORKSPACE_RIGHT,
   META_KEYBINDING_ACTION_MOVE_TO_WORKSPACE_UP,
   META_KEYBINDING_ACTION_MOVE_TO_WORKSPACE_DOWN,
+  META_KEYBINDING_ACTION_MOVE_TO_WORKSPACE_NEW,
   META_KEYBINDING_ACTION_RAISE_OR_LOWER,
   META_KEYBINDING_ACTION_RAISE,
   META_KEYBINDING_ACTION_LOWER,
@@ -336,8 +340,6 @@ MetaKeyBindingAction meta_prefs_get_keybinding_action (const char *name);
 void meta_prefs_get_window_binding (const char          *name,
                                     unsigned int        *keysym,
                                     MetaVirtualModifier *modifiers);
-
-void meta_prefs_get_overlay_binding (MetaKeyCombo *combo);
 
 gboolean           meta_prefs_get_visual_bell      (void);
 gboolean           meta_prefs_bell_is_audible      (void);

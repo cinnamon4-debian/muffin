@@ -89,6 +89,7 @@ meta_core_get (Display *xdisplay,
   if (request != META_CORE_WINDOW_HAS_FRAME &&
       (window == NULL || window->frame == NULL)) {
     meta_bug ("No such frame window 0x%lx!\n", xwindow);
+    va_end (args);
     return;
   }
 
@@ -661,6 +662,9 @@ meta_core_get_menu_accelerator (MetaMenuOp           menu_op,
       break;
     case META_MENU_OP_MOVE_DOWN:
       name = "move-to-workspace-down";
+      break;
+    case META_MENU_OP_MOVE_NEW:
+      name = "move-to-workspace-new";
       break;
     case META_MENU_OP_RECOVER:
       /* No keybinding for this one */

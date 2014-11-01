@@ -55,7 +55,6 @@
 
 #define KEY_MIN_WINDOW_OPACITY "min-window-opacity"
 #define KEY_WS_NAMES_GNOME "workspace-names"
-#define KEY_OVERLAY_KEY "overlay-key"
 #define KEY_LIVE_HIDDEN_WINDOWS "live-hidden-windows"
 #define KEY_WORKSPACES_ONLY_ON_PRIMARY "workspaces-only-on-primary"
 #define KEY_NO_TAB_POPUP "no-tab-popup"
@@ -89,6 +88,7 @@ static CDesktopTitlebarAction action_middle_click_titlebar = C_DESKTOP_TITLEBAR_
 static CDesktopTitlebarAction action_right_click_titlebar = C_DESKTOP_TITLEBAR_ACTION_MENU;
 static CDesktopTitlebarScrollAction action_scroll_titlebar = C_DESKTOP_TITLEBAR_SCROLL_ACTION_NONE;
 static gboolean dynamic_workspaces = FALSE;
+static gboolean unredirect_fullscreen_windows = FALSE;
 static gboolean application_based = FALSE;
 static gboolean disable_workarounds = FALSE;
 static gboolean auto_raise = FALSE;
@@ -325,6 +325,13 @@ static MetaBoolPreference preferences_bool[] =
         META_PREF_DYNAMIC_WORKSPACES,
       },
       &dynamic_workspaces,
+    },
+    {
+      { "unredirect-fullscreen-windows",
+        SCHEMA_MUFFIN,
+        META_PREF_UNREDIRECT_FULLSCREEN_WINDOWS,
+      },
+      &unredirect_fullscreen_windows,
     },
     {
       { "application-based",
@@ -1154,10 +1161,6 @@ settings_changed (GSettings *settings,
       else
         handle_preference_update_string (settings, key);
     }
-  else if (g_str_equal (key, KEY_OVERLAY_KEY))
-    {
-      queue_changed (META_PREF_KEYBINDINGS);
-    }
   else if (g_str_equal (key, KEY_WS_NAMES_GNOME))
     {
       return;
@@ -1681,6 +1684,12 @@ meta_prefs_get_dynamic_workspaces (void)
 }
 
 gboolean
+meta_prefs_get_unredirect_fullscreen_windows (void)
+{
+  return unredirect_fullscreen_windows;
+}
+
+gboolean
 meta_prefs_get_application_based (void)
 {
   return FALSE; /* For now, we never want this to do anything */
@@ -1812,6 +1821,9 @@ meta_preference_to_string (MetaPreference pref)
     case META_PREF_DYNAMIC_WORKSPACES:
       return "DYNAMIC_WORKSPACES";
 
+    case META_PREF_UNREDIRECT_FULLSCREEN_WINDOWS:
+      return "UNREDIRECT_FULLSCREEN_WINDOWS";
+
     case META_PREF_SNAP_MODIFIER:
       return "SNAP_MODIFIER";
 
@@ -1851,8 +1863,6 @@ meta_prefs_set_num_workspaces (int n_workspaces)
 
 static GHashTable *key_bindings;
 
-static MetaKeyCombo overlay_key_combo = { 0, 0, 0 };
-
 static void
 meta_key_pref_free (MetaKeyPref *pref)
 {
@@ -1864,37 +1874,11 @@ meta_key_pref_free (MetaKeyPref *pref)
   g_free (pref);
 }
 
-/* These bindings are for modifiers alone, so they need special handling */
-static void
-init_special_bindings (void)
-{
-  char *val;
-  
-  /* Default values for bindings which are global, but take special handling */
-  meta_ui_parse_accelerator ("Super_L", &overlay_key_combo.keysym, 
-                             &overlay_key_combo.keycode, 
-                             &overlay_key_combo.modifiers);
-
-  val = g_settings_get_string (SETTINGS (SCHEMA_MUFFIN), KEY_OVERLAY_KEY);
-    
-  if (val && meta_ui_parse_accelerator (val, &overlay_key_combo.keysym, 
-                                        &overlay_key_combo.keycode, 
-                                        &overlay_key_combo.modifiers))
-    ;
-  else
-    {
-      meta_topic (META_DEBUG_KEYBINDINGS,
-                  "Failed to parse value for overlay_key\n");
-    }
-  g_free (val);
-}
-
 static void
 init_bindings (void)
 {
   key_bindings = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
                                         (GDestroyNotify)meta_key_pref_free);
-  init_special_bindings ();  
 }
 
 static void
@@ -2217,9 +2201,9 @@ meta_prefs_remove_keybinding (const char *name)
 
 LOCAL_SYMBOL gboolean
 meta_prefs_add_custom_keybinding (const char           *name,
-                                const char           *binding,
-                                MetaKeyBindingAction  action,
-                                MetaKeyBindingFlags   flags)
+                                  const char          **bindings,
+                                  MetaKeyBindingAction  action,
+                                  MetaKeyBindingFlags   flags)
 {
   MetaKeyPref  *pref;
 
@@ -2232,16 +2216,14 @@ meta_prefs_add_custom_keybinding (const char           *name,
 
   pref = g_new0 (MetaKeyPref, 1);
   pref->name = g_strdup (name);
-  pref->schema = g_strdup (binding);
+  pref->schema = NULL;
   pref->action = action;
   pref->bindings = NULL;
   pref->add_shift = (flags & META_KEY_BINDING_REVERSES) != 0;
   pref->per_window = (flags & META_KEY_BINDING_PER_WINDOW) != 0;
   pref->builtin = (flags & META_KEY_BINDING_BUILTIN) != 0;
-  
-  char **strokes = g_strsplit(binding, "XYZZY", 1);
-  update_binding (pref, strokes);
-  g_strfreev (strokes);
+
+  update_binding (pref, (gchar **)bindings);
 
   g_hash_table_insert (key_bindings, g_strdup (name), pref);
 
@@ -2276,12 +2258,6 @@ GList *
 meta_prefs_get_keybindings ()
 {
   return g_hash_table_get_values (key_bindings);
-}
-
-void 
-meta_prefs_get_overlay_binding (MetaKeyCombo *combo)
-{
-  *combo = overlay_key_combo;
 }
 
 CDesktopTitlebarAction
@@ -2503,4 +2479,10 @@ gint
 meta_prefs_get_min_win_opacity (void)
 {
   return min_window_opacity;
+}
+
+gint
+meta_prefs_get_ui_scale (void)
+{
+  return ui_scale;
 }

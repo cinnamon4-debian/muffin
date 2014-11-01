@@ -48,9 +48,11 @@
 #include <X11/XKBlib.h>
 #endif
 
-#define SCHEMA_MUFFIN_KEYBINDINGS "org.cinnamon.muffin.keybindings"
+#define SCHEMA_MUFFIN_KEYBINDINGS "org.cinnamon.desktop.keybindings.wm"
+#define SCHEMA_MUFFIN "org.cinnamon.muffin"
 
 static gboolean all_bindings_disabled = FALSE;
+static gboolean modifier_only_is_down = FALSE;
 
 static gboolean add_builtin_keybinding (MetaDisplay          *display,
                                         const char           *name,
@@ -303,12 +305,6 @@ reload_keycodes (MetaDisplay *display)
   meta_topic (META_DEBUG_KEYBINDINGS,
               "Reloading keycodes for binding tables\n");
 
-  if (display->overlay_key_combo.keysym != 0)
-    {
-      display->overlay_key_combo.keycode =
-        keysym_to_keycode (display, display->overlay_key_combo.keysym);
-    }
-  
   if (display->key_bindings)
     {
       int i;
@@ -477,19 +473,6 @@ rebuild_key_binding_table (MetaDisplay *display)
                          &display->n_key_bindings,
                          prefs);
   g_list_free (prefs);
-}
-
-static void
-rebuild_special_bindings (MetaDisplay *display)
-{
-  MetaKeyCombo combo;
-  
-  meta_prefs_get_overlay_binding (&combo);
-
-  if (combo.keysym != None || combo.keycode != 0)
-    {
-      display->overlay_key_combo = combo;
-    }
 }
 
 static void
@@ -662,7 +645,7 @@ meta_display_remove_keybinding (MetaDisplay *display,
 static gboolean
 add_custom_keybinding_internal (MetaDisplay          *display,
                               const char           *name,
-                              const char           *binding,
+                              const char          **bindings,
                               MetaKeyBindingFlags   flags,
                               MetaKeyBindingAction  action,
                               MetaKeyHandlerFunc    func,
@@ -672,7 +655,7 @@ add_custom_keybinding_internal (MetaDisplay          *display,
 {
   MetaKeyHandler *handler;
 
-  if (!meta_prefs_add_custom_keybinding (name, binding, action, flags))
+  if (!meta_prefs_add_custom_keybinding (name, bindings, action, flags))
     return FALSE;
 
   handler = g_new0 (MetaKeyHandler, 1);
@@ -694,7 +677,7 @@ add_custom_keybinding_internal (MetaDisplay          *display,
  * meta_display_add_custom_keybinding:
  * @display: a #MetaDisplay
  * @name: the binding's unique name
- * @binding: the parseable keystrokes string (<Control>F1, etc..)
+ * @bindings: (allow-none) (array zero-terminated=1): array of parseable keystrokes
  * @callback: function to run when the keybinding is invoked
  * @user_data: the data to pass to @handler
  * @free_data: function to free @user_data
@@ -706,15 +689,15 @@ add_custom_keybinding_internal (MetaDisplay          *display,
  *          otherwise %FALSE
  */
 gboolean
-meta_display_add_custom_keybinding (MetaDisplay         *display,
+meta_display_add_custom_keybinding (MetaDisplay       *display,
                                   const char          *name,
-                                  const char          *binding,
+                                  const char         **bindings,
                                   MetaKeyHandlerFunc   callback,
                                   gpointer             user_data,
                                   GDestroyNotify       free_data)
 
 {
-  return add_custom_keybinding_internal (display, name, binding,
+  return add_custom_keybinding_internal (display, name, bindings,
                                        META_KEY_BINDING_NONE,
                                        META_KEYBINDING_ACTION_CUSTOM,
                                        (MetaKeyHandlerFunc)callback, 0, user_data, free_data);
@@ -797,22 +780,6 @@ meta_display_keybinding_action_invoke_by_code (MetaDisplay  *display,
     invoke_handler_by_name (display, NULL, binding->name, NULL, NULL);
 }
 
-gboolean
-meta_display_get_is_overlay_key (MetaDisplay *display,
-                                 unsigned int keycode,
-                                 unsigned long mask)
-{
-
-    MetaKeyCombo combo;
-    KeySym keysym;
-
-    keysym = XkbKeycodeToKeysym (display->xdisplay, keycode, 0, 0);
-    mask = mask & 0xff & ~display->ignored_modifier_mask;
-    meta_prefs_get_overlay_binding (&combo);
-
-    return combo.keysym == keysym && combo.modifiers == mask;
-}
-
 LOCAL_SYMBOL void
 meta_display_process_mapping_event (MetaDisplay *display,
                                     XEvent      *event)
@@ -879,7 +846,6 @@ bindings_changed_callback (MetaPreference pref,
     {
     case META_PREF_KEYBINDINGS:
       rebuild_key_binding_table (display);
-      rebuild_special_bindings (display);
       reload_keycodes (display);
       reload_modifiers (display);
       regrab_key_bindings (display);
@@ -893,7 +859,6 @@ void
 meta_display_rebuild_keybindings (MetaDisplay *display)
 {
     rebuild_key_binding_table (display);
-    rebuild_special_bindings (display);
     reload_keycodes (display);
     reload_modifiers (display);
     regrab_key_bindings (display);
@@ -1070,18 +1035,11 @@ ungrab_all_keys (MetaDisplay *display,
 LOCAL_SYMBOL void
 meta_screen_grab_keys (MetaScreen *screen)
 {
-  MetaDisplay *display = screen->display;  
   if (screen->all_keys_grabbed)
     return;
 
   if (screen->keys_grabbed)
     return;
-  
-  if (display->overlay_key_combo.keycode != 0)
-    meta_grab_key (display, screen->xroot,
-                   display->overlay_key_combo.keysym,
-                   display->overlay_key_combo.keycode,
-                   display->overlay_key_combo.modifiers);
 
   grab_keys (screen->display->key_bindings,
              screen->display->n_key_bindings,
@@ -1518,6 +1476,62 @@ invoke_handler_by_name (MetaDisplay    *display,
     invoke_handler (display, screen, handler, window, event, NULL);
 }
 
+
+static gboolean
+modifier_only_keysym (KeySym keysym)
+{
+  return keysym == XK_Super_L ||
+         keysym == XK_Super_R ||
+         keysym == XK_Control_L ||
+         keysym == XK_Control_R ||
+         keysym == XK_Alt_L ||
+         keysym == XK_Alt_R ||
+         keysym == XK_Shift_L ||
+         keysym == XK_Shift_R;
+}
+
+static void
+strip_self_mod (KeySym keysym, unsigned long *mask)
+{
+  unsigned long mod = 0;
+
+  switch (keysym)
+    {
+      case XK_Super_L:
+      case XK_Super_R:
+        mod = GDK_MOD4_MASK;
+        break;
+      case XK_Control_L:
+      case XK_Control_R:
+        mod = GDK_CONTROL_MASK;
+        break;
+      case XK_Alt_L:
+      case XK_Alt_R:
+        mod = GDK_MOD1_MASK;
+        break;
+      case XK_Shift_L:
+      case XK_Shift_R:
+        mod = GDK_SHIFT_MASK;
+        break;
+      default:
+        mod = 0;
+        break;
+    }
+  
+  *mask = *mask & ~mod;
+}
+
+static gboolean
+is_modifier_only_kb (MetaDisplay *display, XEvent *event, KeySym keysym)
+{
+    unsigned long mask;
+
+    mask = (event->xkey.state & 0xff & ~(display->ignored_modifier_mask));
+    strip_self_mod (keysym, &mask);
+
+    return mask == 0 && modifier_only_keysym (keysym);
+}
+
 /* now called from only one place, may be worth merging */
 static gboolean
 process_event (MetaKeyBinding       *bindings,
@@ -1527,12 +1541,22 @@ process_event (MetaKeyBinding       *bindings,
                MetaWindow           *window,
                XEvent               *event,
                KeySym                keysym,
-               gboolean              on_window)
+               gboolean              on_window,
+               gboolean              allow_release)
 {
   int i;
+  unsigned long mask;
+
   /* we used to have release-based bindings but no longer. */
-  if (event->type == KeyRelease)
+  if (event->type == KeyRelease && !allow_release)
     return FALSE;
+
+  mask = event->xkey.state & 0xff & ~(display->ignored_modifier_mask);
+
+  if (allow_release)
+    {
+      strip_self_mod (keysym, &mask);
+    }
 
   /*
    * TODO: This would be better done with a hash table;
@@ -1543,10 +1567,9 @@ process_event (MetaKeyBinding       *bindings,
       MetaKeyHandler *handler = bindings[i].handler;
 
       if ((!on_window && handler->flags & META_KEY_BINDING_PER_WINDOW) ||
-          event->type != KeyPress ||
+          (event->type != KeyPress && !allow_release) ||
           bindings[i].keycode != event->xkey.keycode ||
-          ((event->xkey.state & 0xff & ~(display->ignored_modifier_mask)) !=
-           bindings[i].mask))
+          mask != bindings[i].mask)
         continue;
 
       /*
@@ -1584,16 +1607,16 @@ process_event (MetaKeyBinding       *bindings,
 }
 
 static gboolean
-process_overlay_key (MetaDisplay *display,
+process_modifier_key (MetaDisplay *display,
                      MetaScreen *screen,
                      XEvent *event,
                      KeySym keysym)
 {
-  if (display->overlay_key_only_pressed)
+  if (modifier_only_is_down)
     {
-      if (event->xkey.keycode != display->overlay_key_combo.keycode)
+      if (!is_modifier_only_kb (display, event, keysym))
         {
-          display->overlay_key_only_pressed = FALSE;
+          modifier_only_is_down = FALSE;
 
           /* OK, the user hit modifier+key rather than pressing and
            * releasing the ovelay key. We want to handle the key
@@ -1610,7 +1633,7 @@ process_overlay_key (MetaDisplay *display,
           if (process_event (display->key_bindings,
                              display->n_key_bindings,
                              display, screen, NULL, event, keysym,
-                             FALSE))
+                             FALSE, FALSE))
             {
               /* As normally, after we've handled a global key
                * binding, we unfreeze the keyboard but keep the grab
@@ -1627,19 +1650,22 @@ process_overlay_key (MetaDisplay *display,
         }
       else if (event->xkey.type == KeyRelease)
         {
-          display->overlay_key_only_pressed = FALSE;
+          modifier_only_is_down = FALSE;
           /* We want to unfreeze events, but keep the grab so that if the user
            * starts typing into the overlay we get all the keys */
           XAllowEvents (display->xdisplay, AsyncKeyboard, event->xkey.time);
-          meta_display_overlay_key_activate (display);
+          return process_event (display->key_bindings,
+                                display->n_key_bindings,
+                                display, screen, NULL, event, keysym,
+                                FALSE, TRUE);
         }
 
       return TRUE;
     }
   else if (event->xkey.type == KeyPress &&
-           event->xkey.keycode == display->overlay_key_combo.keycode)
+           is_modifier_only_kb (display, event, keysym))
     {
-      display->overlay_key_only_pressed = TRUE;
+      modifier_only_is_down = TRUE;
       /* We keep the keyboard frozen - this allows us to use ReplayKeyboard
        * on the next event if it's not the release of the overlay key */
       XAllowEvents (display->xdisplay, SyncKeyboard, event->xkey.time);
@@ -1719,9 +1745,10 @@ meta_display_process_key_event (MetaDisplay *display,
               window ? window->desc : "(no window)");
 
   all_keys_grabbed = window ? window->all_keys_grabbed : screen->all_keys_grabbed;
+
   if (!all_keys_grabbed)
     {
-      handled = process_overlay_key (display, screen, event, keysym);
+      handled = process_modifier_key (display, screen, event, keysym);
       if (handled)
         return TRUE;
     }
@@ -1818,7 +1845,7 @@ meta_display_process_key_event (MetaDisplay *display,
   return process_event (display->key_bindings,
                         display->n_key_bindings,
                         display, screen, window, event, keysym,
-                        !all_keys_grabbed && window);
+                        !all_keys_grabbed && window, FALSE);
 }
 
 static gboolean
@@ -1853,7 +1880,7 @@ process_mouse_move_resize_grab (MetaDisplay *display,
                               META_MAXIMIZE_VERTICAL);
       else if (window->tile_mode != META_TILE_NONE) {
         window->custom_snap_size = FALSE;
-        meta_window_tile (window, FALSE);
+        meta_window_real_tile (window, FALSE);
       } else
         meta_window_move_resize (display->grab_window,
                                  TRUE,
@@ -2791,19 +2818,17 @@ handle_move_to_corner_backend (MetaDisplay    *display,
 {
   MetaRectangle work_area;
   MetaRectangle outer;
-  int orig_x, orig_y;
   int new_x, new_y;
 
   meta_window_get_work_area_all_monitors (window, &work_area);
   meta_window_get_outer_rect (window, &outer);
-  meta_window_get_position (window, &orig_x, &orig_y);
 
   if (xchange) {
     new_x = work_area.x + (to_right ?
             work_area.width - outer.width :
             0);
   } else {
-    new_x = orig_x;
+    new_x = outer.x;
   }
 
   if (ychange) {
@@ -2811,7 +2836,7 @@ handle_move_to_corner_backend (MetaDisplay    *display,
             work_area.height - outer.height :
             0);
   } else {
-    new_y = orig_y;
+    new_y = outer.y;
   }
 
   meta_window_move_frame (window,
@@ -3077,9 +3102,6 @@ handle_panel (MetaDisplay    *display,
   switch (action)
     {
     /* FIXME: The numbers are wrong */
-    case META_KEYBINDING_ACTION_PANEL_MAIN_MENU:
-      action_atom = display->atom__GNOME_PANEL_ACTION_MAIN_MENU;
-      break;
     case META_KEYBINDING_ACTION_PANEL_RUN_DIALOG:
       action_atom = display->atom__GNOME_PANEL_ACTION_RUN_DIALOG;
       break;
@@ -3498,59 +3520,10 @@ handle_tile_action (MetaDisplay    *display,
   if (new_mode == window->tile_mode)
     return;
 
-  gboolean can_do = FALSE;
-
-  switch (new_mode) {
-    case META_TILE_LEFT:
-    case META_TILE_RIGHT:
-        can_do = meta_window_can_tile_side_by_side (window);
-        break;
-    case META_TILE_TOP:
-    case META_TILE_BOTTOM:
-        can_do = meta_window_can_tile_top_bottom (window);
-        break;
-    case META_TILE_ULC:
-    case META_TILE_LLC:
-    case META_TILE_URC:
-    case META_TILE_LRC:
-        can_do = meta_window_can_tile_corner (window);
-        break;
-    default:
-        can_do = TRUE;
-        break;
-  }
-
-  if (!can_do)
+  if (!meta_window_can_tile (window, new_mode))
     return;
 
-  if (new_mode != META_TILE_NONE) {
-      window->last_tile_mode = window->tile_mode;
-      window->snap_queued = snap;
-      window->tile_monitor_number = window->monitor->number;
-      window->tile_mode = new_mode;
-      window->custom_snap_size = FALSE;
-      window->saved_maximize = FALSE;
-      /* Maximization constraints beat tiling constraints, so if the window
-       * is maximized, tiling won't have any effect unless we unmaximize it
-       * horizontally first; rather than calling meta_window_unmaximize(),
-       * we just set the flag and rely on meta_window_tile() syncing it to
-       * save an additional roundtrip.
-       */
-      meta_window_tile (window, TRUE);
-  } else {
-      window->last_tile_mode = window->tile_mode;
-      window->tile_mode = new_mode;
-      window->custom_snap_size = FALSE;
-      meta_window_set_tile_type (window, META_WINDOW_TILE_TYPE_NONE);
-      window->tile_monitor_number = window->saved_maximize ? window->monitor->number
-                                                           : -1;
-      if (window->saved_maximize)
-        meta_window_maximize (window, META_MAXIMIZE_VERTICAL |
-                                      META_MAXIMIZE_HORIZONTAL);
-      else
-        meta_window_unmaximize (window, META_MAXIMIZE_VERTICAL |
-                                        META_MAXIMIZE_HORIZONTAL);
-  }
+  meta_window_tile (window, new_mode, snap);
 }
 
 static void
@@ -3695,6 +3668,7 @@ handle_move_to_workspace  (MetaDisplay    *display,
 {
   gint which = binding->handler->data;
   gboolean flip = (which < 0);
+  gboolean new = (which == META_MOTION_NOT_EXIST_YET);
   MetaWorkspace *workspace;
   
   /* If which is zero or positive, it's a workspace number, and the window
@@ -3709,15 +3683,17 @@ handle_move_to_workspace  (MetaDisplay    *display,
     return;
   
   workspace = NULL;
-  if (flip)
-    {      
-      workspace = meta_workspace_get_neighbor (screen->active_workspace,
-                                               which);
-    }
-  else
-    {
-      workspace = meta_screen_get_workspace_by_index (screen, which);
-    }
+  if (!new) {
+    if (flip)
+      {      
+        workspace = meta_workspace_get_neighbor (screen->active_workspace,
+                                                 which);
+      }
+    else
+      {
+        workspace = meta_screen_get_workspace_by_index (screen, which);
+      }
+  }
   
   if (workspace)
     {
@@ -3734,10 +3710,15 @@ handle_move_to_workspace  (MetaDisplay    *display,
                                               event->xkey.time);
         }
     }
-  else
+  else if (new)
     {
-      /* We could offer to create it I suppose */
-    }  
+      workspace = meta_screen_append_new_workspace (window->screen, FALSE, event->xkey.time);
+      GSettings *cinnamon = g_settings_new ("org.cinnamon");
+      g_settings_set_int (cinnamon, "number-workspaces", g_list_length (screen->workspaces));
+      g_object_unref (cinnamon);
+
+      meta_window_change_workspace (window, workspace);
+    }
 }
 
 static void 
@@ -4029,7 +4010,6 @@ init_builtin_key_bindings (MetaDisplay *display)
                           META_KEYBINDING_ACTION_WORKSPACE_DOWN,
                           handle_switch_to_workspace, META_MOTION_DOWN);
 
-
   /* The ones which have inverses.  These can't be bound to any keystroke
    * containing Shift because Shift will invert their "backward" state.
    *
@@ -4152,13 +4132,6 @@ init_builtin_key_bindings (MetaDisplay *display)
                           META_KEY_BINDING_NONE,
                           META_KEYBINDING_ACTION_SHOW_DESKTOP,
                           handle_show_desktop, 0);
-
-  add_builtin_keybinding (display,
-                          "panel-main-menu",
-                          SCHEMA_MUFFIN_KEYBINDINGS,
-                          META_KEY_BINDING_NONE,
-                          META_KEYBINDING_ACTION_PANEL_MAIN_MENU,
-                          handle_panel, META_KEYBINDING_ACTION_PANEL_MAIN_MENU);
 
   add_builtin_keybinding (display,
                           "panel-run-dialog",
@@ -4444,6 +4417,13 @@ init_builtin_key_bindings (MetaDisplay *display)
                           handle_move_to_workspace, META_MOTION_DOWN);
 
   add_builtin_keybinding (display,
+                          "move-to-workspace-new",
+                          SCHEMA_MUFFIN_KEYBINDINGS,
+                          META_KEY_BINDING_PER_WINDOW,
+                          META_KEYBINDING_ACTION_MOVE_TO_WORKSPACE_NEW,
+                          handle_move_to_workspace, META_MOTION_NOT_EXIST_YET);
+
+  add_builtin_keybinding (display,
                           "raise-or-lower",
                           SCHEMA_MUFFIN_KEYBINDINGS,
                           META_KEY_BINDING_PER_WINDOW,
@@ -4591,7 +4571,6 @@ meta_display_init_keys (MetaDisplay *display)
   init_builtin_key_bindings (display);
 
   rebuild_key_binding_table (display);
-  rebuild_special_bindings (display);
 
   reload_keycodes (display);
   reload_modifiers (display);
