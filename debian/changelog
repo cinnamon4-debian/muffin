@@ -1,3 +1,10 @@
+muffin (2.4.0-1~) UNRELEASED; urgency=medium
+
+  * New upstream release.
+  * debian/patches: removed one patch applied upstream.
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Sat, 01 Nov 2014 14:42:31 +0100
+
 muffin (2.2.6-4) unstable; urgency=medium
 
   * New patch: upstream_add_GTK_STATE_FLAG_CHECKED_case (Closes: #763249)
