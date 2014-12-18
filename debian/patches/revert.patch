@@ -1,0 +1,89 @@
+Description: Revert of 2 patches to solves a fails to build:
+- f0a30f0aa62b00db543cc20edb6d6b03a34275c2
+- 6ab824d46591c8db649162060c60127493b7af09
+Probably a better solution should be found and applied probably upstream.
+Author: Fabio Fantoni <fantonifabio@tiscali.it>
+Origin: Debian
+---
+ Makefile.am                        | 2 --
+ src/Makefile.am                    | 4 ++--
+ src/compositor/plugins/Makefile.am | 2 +-
+ src/tools/Makefile.am              | 2 +-
+ src/wm-tester/Makefile.am          | 2 +-
+ 5 files changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index 468bbd7..d9c9d31 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -1,8 +1,6 @@
+ 
+ SUBDIRS=src po doc
+ 
+-ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
+-
+ EXTRA_DIST = HACKING MAINTAINERS rationales.txt
+ 
+ DISTCLEANFILES = intltool-extract intltool-merge intltool-update po/stamp-it po/.intltool-merge-cache
+diff --git a/src/Makefile.am b/src/Makefile.am
+index ed17562..d3d7eb8 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -5,7 +5,7 @@ lib_LTLIBRARIES = libmuffin.la
+ 
+ SUBDIRS=wm-tester tools compositor/plugins
+ 
+-AM_CPPFLAGS=								\
++INCLUDES=								\
+ 	$(MUFFIN_CFLAGS)						\
+ 	-I$(srcdir)							\
+ 	-I$(srcdir)/core						\
+@@ -229,7 +229,7 @@ INTROSPECTION_GIRS = Meta-$(api_version).gir
+ Meta-$(api_version).gir: libmuffin.la
+ @META_GIR@_INCLUDES = GObject-2.0 CDesktopEnums-3.0 Gdk-3.0 Gtk-3.0 Clutter-1.0 xlib-2.0 xfixes-4.0
+ @META_GIR@_PACKAGES = clutter-1.0 gtk+-3.0
+-@META_GIR@_CFLAGS = $(AM_CPPFLAGS)
++@META_GIR@_CFLAGS = $(INCLUDES)
+ @META_GIR@_LIBS = libmuffin.la
+ @META_GIR@_FILES =				\
+ 	muffin-enum-types.h			\
+diff --git a/src/compositor/plugins/Makefile.am b/src/compositor/plugins/Makefile.am
+index 5941c7b..bd8d105 100644
+--- a/src/compositor/plugins/Makefile.am
++++ b/src/compositor/plugins/Makefile.am
+@@ -1,7 +1,7 @@
+ 
+ pkglibdir=@MUFFIN_PLUGIN_DIR@
+ 
+-AM_CPPFLAGS=@MUFFIN_CFLAGS@ -I $(top_srcdir)/src -DMUFFIN_LIBEXECDIR=\"$(libexecdir)\" -DHOST_ALIAS=\"@HOST_ALIAS@\" -DMUFFIN_LOCALEDIR=\"$(prefix)/@DATADIRNAME@/locale\" -DMUFFIN_PKGDATADIR=\"$(pkgdatadir)\" -DMUFFIN_DATADIR=\"$(datadir)\" -DG_LOG_DOMAIN=\"muffin\" -DSN_API_NOT_YET_FROZEN=1 -DMUFFIN_MAJOR_VERSION=$(MUFFIN_MAJOR_VERSION) -DMUFFIN_MINOR_VERSION=$(MUFFIN_MINOR_VERSION) -DMUFFIN_MICRO_VERSION=$(MUFFIN_MICRO_VERSION) -DMUFFIN_PLUGIN_API_VERSION=$(MUFFIN_PLUGIN_API_VERSION) -DMUFFIN_PLUGIN_DIR=\"@MUFFIN_PLUGIN_DIR@\"
++INCLUDES=@MUFFIN_CFLAGS@ -I $(top_srcdir)/src -DMUFFIN_LIBEXECDIR=\"$(libexecdir)\" -DHOST_ALIAS=\"@HOST_ALIAS@\" -DMUFFIN_LOCALEDIR=\"$(prefix)/@DATADIRNAME@/locale\" -DMUFFIN_PKGDATADIR=\"$(pkgdatadir)\" -DMUFFIN_DATADIR=\"$(datadir)\" -DG_LOG_DOMAIN=\"muffin\" -DSN_API_NOT_YET_FROZEN=1 -DMUFFIN_MAJOR_VERSION=$(MUFFIN_MAJOR_VERSION) -DMUFFIN_MINOR_VERSION=$(MUFFIN_MINOR_VERSION) -DMUFFIN_MICRO_VERSION=$(MUFFIN_MICRO_VERSION) -DMUFFIN_PLUGIN_API_VERSION=$(MUFFIN_PLUGIN_API_VERSION) -DMUFFIN_PLUGIN_DIR=\"@MUFFIN_PLUGIN_DIR@\"
+ 
+ default_la_CFLAGS   = -fPIC
+ default_la_SOURCES  = default.c
+diff --git a/src/tools/Makefile.am b/src/tools/Makefile.am
+index 3415542..284275c 100644
+--- a/src/tools/Makefile.am
++++ b/src/tools/Makefile.am
+@@ -3,7 +3,7 @@
+ icondir=$(pkgdatadir)/icons
+ icon_DATA=muffin-window-demo.png
+ 
+-AM_CPPFLAGS=@MUFFIN_WINDOW_DEMO_CFLAGS@ @MUFFIN_MESSAGE_CFLAGS@ \
++INCLUDES=@MUFFIN_WINDOW_DEMO_CFLAGS@ @MUFFIN_MESSAGE_CFLAGS@ \
+ 	-I$(top_srcdir)/src \
+ 	-DMUFFIN_ICON_DIR=\"$(pkgdatadir)/icons\" \
+ 	-DMUFFIN_LOCALEDIR=\"$(prefix)/@DATADIRNAME@/locale\"
+diff --git a/src/wm-tester/Makefile.am b/src/wm-tester/Makefile.am
+index fcf5e61..ecae00b 100644
+--- a/src/wm-tester/Makefile.am
++++ b/src/wm-tester/Makefile.am
+@@ -1,5 +1,5 @@
+ 
+-AM_CPPFLAGS=@MUFFIN_CFLAGS@
++INCLUDES=@MUFFIN_CFLAGS@
+ 
+ wm_tester_SOURCES= 				\
+ 	main.c
+-- 
+1.9.1
+
