@@ -50,7 +50,6 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_display_get_focus_window@Base 1.1.0
  meta_display_get_grab_op@Base 1.1.0
  meta_display_get_ignored_modifier_mask@Base 1.1.0
- meta_display_get_is_overlay_key@Base 1.8.1
  meta_display_get_keybinding_action@Base 1.1.0
  meta_display_get_last_user_time@Base 1.1.0
  meta_display_get_leader_window@Base 1.1.0
@@ -192,7 +191,6 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_prefs_get_mouse_button_resize@Base 1.1.0
  meta_prefs_get_no_tab_popup@Base 1.1.0
  meta_prefs_get_num_workspaces@Base 1.1.0
- meta_prefs_get_overlay_binding@Base 1.1.0
  meta_prefs_get_placement_mode@Base 2.0.5
  meta_prefs_get_raise_on_click@Base 1.1.0
  meta_prefs_get_resize_threshold@Base 2.0.5
@@ -201,6 +199,8 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_prefs_get_tile_hud_threshold@Base 2.0.5
  meta_prefs_get_tile_maximize@Base 2.0.5
  meta_prefs_get_titlebar_font@Base 1.1.0
+ meta_prefs_get_ui_scale@Base 2.4.2
+ meta_prefs_get_unredirect_fullscreen_windows@Base 2.4.2
  meta_prefs_get_visual_bell@Base 1.1.0
  meta_prefs_get_visual_bell_type@Base 1.1.0
  meta_prefs_get_window_binding@Base 1.1.0
@@ -303,6 +303,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_theme_new@Base 1.1.0
  meta_theme_set_current@Base 1.1.0
  meta_theme_validate@Base 1.1.0
+ meta_tile_mode_get_type@Base 2.4.2
  meta_topic_real@Base 1.1.0
  meta_unsigned_long_equal@Base 1.1.0
  meta_unsigned_long_hash@Base 1.1.0
@@ -322,6 +323,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_actor_show@Base 1.1.0
  meta_window_actor_showing_on_its_workspace@Base 1.1.0
  meta_window_appears_focused@Base 1.1.0
+ meta_window_can_tile@Base 2.4.2
  meta_window_change_workspace@Base 1.1.0
  meta_window_change_workspace_by_index@Base 1.1.0
  meta_window_compute_group@Base 1.1.0
@@ -413,6 +415,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_showing_on_its_workspace@Base 1.1.0
  meta_window_shutdown_group@Base 1.1.0
  meta_window_stick@Base 1.1.0
+ meta_window_tile@Base 2.4.2
  meta_window_tile_type_get_type@Base 2.0.5
  meta_window_toplevel_is_mapped@Base 1.1.0
  meta_window_type_get_type@Base 1.1.0
