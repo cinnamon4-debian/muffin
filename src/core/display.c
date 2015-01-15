@@ -1818,11 +1818,9 @@ event_callback (XEvent   *event,
     case ButtonPress:
       if (display->grab_op == META_GRAB_OP_COMPOSITOR)
         break;
-
-      if (event->xbutton.button == 4 || event->xbutton.button == 5)
+      if (display->window_grab_modifiers > 0 && (event->xbutton.button == 4 || event->xbutton.button == 5))
         {
-          gboolean unmodified = (event->xbutton.state & display->window_grab_modifiers) == 0;
-          if (!unmodified && event->xbutton.state == display->window_grab_modifiers)
+          if ((event->xbutton.state & ~display->ignored_modifier_mask) == display->window_grab_modifiers)
             {
               if (event->xbutton.button == 4)
                 {
