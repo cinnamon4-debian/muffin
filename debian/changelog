@@ -1,4 +1,4 @@
-muffin (2.4.3-1~) UNRELEASED; urgency=medium
+muffin (2.4.4-1~) UNRELEASED; urgency=medium
 
   * New upstream release. (Closes: #762368)
   * debian/patches: removed one patch applied upstream.
