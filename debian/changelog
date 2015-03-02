@@ -1,4 +1,4 @@
-muffin (2.4.4-1~) UNRELEASED; urgency=medium
+muffin (2.4.4-1) experimental; urgency=medium
 
   [ Fabio Fantoni ]
   * New upstream release. (Closes: #762368)
@@ -9,7 +9,7 @@ muffin (2.4.4-1~) UNRELEASED; urgency=medium
   * Update copyright information.
   * Update symbols files.
 
- -- Fabio Fantoni <fantonifabio@tiscali.it>  Sat, 01 Nov 2014 14:42:31 +0100
+ -- Maximiliano Curia <maxy@debian.org>  Mon, 02 Mar 2015 12:50:36 +0100
 
 muffin (2.2.6-4) unstable; urgency=medium
 
