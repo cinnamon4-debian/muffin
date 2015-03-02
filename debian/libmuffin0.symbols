@@ -1,4 +1,4 @@
-# SymbolsHelper-Confirmed: 2.4.2 amd64
+# SymbolsHelper-Confirmed: 2.4.4 amd64
 libmuffin.so.0 libmuffin0 #MINVER#
  _meta_plugin_effect_started@Base 1.1.0
  (optional)meta_accel_label_get_type@Base 1.1.0
@@ -367,6 +367,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_get_tile_side@Base 2.0.5
  meta_window_get_tile_type@Base 2.0.5
  meta_window_get_title@Base 1.1.0
+ meta_window_get_titlebar_rect@Base 2.4.4
  meta_window_get_transient_for@Base 1.1.0
  meta_window_get_transient_for_as_xid@Base 1.1.0
  meta_window_get_type@Base 1.1.0
