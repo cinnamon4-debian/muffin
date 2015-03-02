@@ -6,6 +6,7 @@ muffin (2.4.4-1~) UNRELEASED; urgency=medium
 
   [ Maximiliano Curia ]
   * Bump Standards-Version to 3.9.6, no changes needed.
+  * Update copyright information.
 
  -- Fabio Fantoni <fantonifabio@tiscali.it>  Sat, 01 Nov 2014 14:42:31 +0100
 
