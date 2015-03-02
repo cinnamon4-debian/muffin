@@ -1,7 +1,11 @@
 muffin (2.4.4-1~) UNRELEASED; urgency=medium
 
+  [ Fabio Fantoni ]
   * New upstream release. (Closes: #762368)
   * debian/patches: removed one patch applied upstream.
+
+  [ Maximiliano Curia ]
+  * Bump Standards-Version to 3.9.6, no changes needed.
 
  -- Fabio Fantoni <fantonifabio@tiscali.it>  Sat, 01 Nov 2014 14:42:31 +0100
 
