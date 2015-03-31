@@ -6888,8 +6888,7 @@ meta_window_client_message (MetaWindow *window,
     {
       meta_verbose ("WM_CHANGE_STATE client message, state: %ld\n",
                     event->xclient.data.l[0]);
-      if (event->xclient.data.l[0] == IconicState &&
-          window->has_minimize_func)
+      if (event->xclient.data.l[0] == IconicState)
         meta_window_minimize (window);
 
       return TRUE;
@@ -11021,10 +11020,15 @@ meta_window_get_display (MetaWindow *window)
 }
 
 /**
- * meta_window_get_xwindow: (skip)
+ * meta_window_get_xwindow:
+ * @window: A #MetaWindow
+ *
+ * Returns: The Window id of the @window
+ * note - we return unsigned long because Window
+ * Can't be introspected (but Window *is* a ulong)
  *
  */
-Window
+unsigned long
 meta_window_get_xwindow (MetaWindow *window)
 {
   return window->xwindow;
