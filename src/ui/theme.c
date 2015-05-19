@@ -1511,6 +1511,23 @@ meta_color_spec_new_gtk (MetaGtkColorComponent component,
   return spec;
 }
 
+static void
+get_background_color (GtkStyleContext *context,
+                      GtkStateFlags    state,
+                      GdkRGBA         *color)
+{
+  gtk_style_context_get_background_color (context, state, color);
+
+  GdkRGBA empty = {0.0, 0.0, 0.0, 0.0};
+
+  // Sometimes the widget has no background color. Steal one from a generic toplevel window, since this always has a background color.
+  if (gdk_rgba_equal(color, &empty))
+    {
+      GtkWidget *widget = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+      gtk_style_context_get_background_color(gtk_widget_get_style_context (widget), state, color);
+    }
+}
+
 /* Based on set_color() in gtkstyle.c */
 #define LIGHTNESS_MULT 1.3
 #define DARKNESS_MULT  0.7
@@ -1519,7 +1536,7 @@ meta_gtk_style_get_light_color (GtkStyleContext *style,
                                 GtkStateFlags    state,
                                 GdkRGBA         *color)
 {
-  gtk_style_context_get_background_color (style, state, color);
+  get_background_color (style, state, color);
   gtk_style_shade (color, color, LIGHTNESS_MULT);
 }
 
@@ -1528,7 +1545,7 @@ meta_gtk_style_get_dark_color (GtkStyleContext *style,
                                GtkStateFlags    state,
                                GdkRGBA         *color)
 {
-  gtk_style_context_get_background_color (style, state, color);
+  get_background_color (style, state, color);
   gtk_style_shade (color, color, DARKNESS_MULT);
 }
 
@@ -1544,7 +1561,7 @@ meta_set_color_from_style (GdkRGBA               *color,
     {
     case META_GTK_COLOR_BG:
     case META_GTK_COLOR_BASE:
-      gtk_style_context_get_background_color (context, state, color);
+      get_background_color (context, state, color);
       break;
     case META_GTK_COLOR_FG:
     case META_GTK_COLOR_TEXT:
@@ -5938,7 +5955,7 @@ meta_theme_lookup_color_constant (MetaTheme   *theme,
 LOCAL_SYMBOL PangoFontDescription*
 meta_gtk_widget_get_font_desc (GtkWidget *widget,
                                double     scale,
-			       const PangoFontDescription *override)
+                               const PangoFontDescription *override)
 {
   GtkStyleContext *style;
   PangoFontDescription *font_desc;
@@ -5946,7 +5963,9 @@ meta_gtk_widget_get_font_desc (GtkWidget *widget,
   g_return_val_if_fail (gtk_widget_get_realized (widget), NULL);
 
   style = gtk_widget_get_style_context (widget);
-  font_desc = pango_font_description_copy (gtk_style_context_get_font (style, 0));
+  gtk_style_context_get (style, GTK_STATE_FLAG_NORMAL,
+                         GTK_STYLE_PROPERTY_FONT, &font_desc,
+                         NULL);
 
   if (override)
     pango_font_description_merge (font_desc, override, TRUE);

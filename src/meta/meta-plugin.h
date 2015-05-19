@@ -101,14 +101,27 @@ struct _MetaPluginClass
                             gint                to,
                             MetaMotionDirection direction);
 
+  void (*show_tile_preview) (MetaPlugin         *plugin,
+                             MetaWindow         *window,
+                             MetaRectangle      *tile_rect,
+                             int                tile_monitor_number,
+                             guint              snap_queued);
+
+  void (*hide_tile_preview) (MetaPlugin         *plugin);
+
+  void (*show_hud_preview) (MetaPlugin          *plugin,
+                            guint               current_proximity_zone,
+                            MetaRectangle       *work_area,
+                            guint               snap_queued);
+
+  void (*hide_hud_preview) (MetaPlugin         *plugin);
+
   /*
    * Called if an effects should be killed prematurely; the plugin must
    * call the completed() callback as if the effect terminated naturally.
    */
   void (*kill_window_effects)      (MetaPlugin      *plugin,
                                     MetaWindowActor *actor);
-
-  void (*kill_switch_workspace)    (MetaPlugin     *plugin);
 
   /* General XEvent filter. This is fired *before* meta itself handles
    * an event. Return TRUE to block any further processing.
@@ -130,8 +143,6 @@ struct _MetaPluginInfo
 
 GType meta_plugin_get_type (void);
 
-gulong        meta_plugin_features            (MetaPlugin *plugin);
-gboolean      meta_plugin_disabled            (MetaPlugin *plugin);
 gboolean      meta_plugin_running             (MetaPlugin *plugin);
 gboolean      meta_plugin_debug_mode          (MetaPlugin *plugin);
 
@@ -228,9 +239,6 @@ struct _MetaPluginVersion
   }                                                                     \
 
 void
-meta_plugin_type_register (GType plugin_type);
-
-void
 meta_plugin_switch_workspace_completed (MetaPlugin *plugin);
 
 void
@@ -286,5 +294,8 @@ MetaScreen *meta_plugin_get_screen        (MetaPlugin *plugin);
 
 void
 _meta_plugin_effect_started (MetaPlugin *plugin);
+
+/* Putting this here so it's in the public header */
+void    meta_plugin_manager_set_plugin_type (GType gtype);
 
 #endif /* META_PLUGIN_H_ */

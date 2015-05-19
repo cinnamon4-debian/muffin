@@ -24,6 +24,7 @@
 
 /**
  * SECTION:main
+ * @title: Main
  * @short_description: Program startup.
  * 
  * Functions which parse the command-line arguments, create the display,
@@ -384,7 +385,7 @@ on_sigterm (void)
  * meta_init: (skip)
  *
  * Initialize muffin. Call this after meta_get_option_context() and
- * meta_plugin_type_register(), and before meta_run().
+ * meta_plugin_manager_set_plugin_type(), and before meta_run().
  */
 void
 meta_init (void)
@@ -393,8 +394,6 @@ meta_init (void)
   sigset_t empty_mask;
   GIOChannel *channel;
 
-  g_type_init ();
-  
   sigemptyset (&empty_mask);
   act.sa_handler = SIG_IGN;
   act.sa_mask    = empty_mask;
@@ -506,35 +505,12 @@ meta_run (void)
    * try anything in the themes directory.
    */
   if (!meta_ui_have_a_theme ())
-    meta_ui_set_current_theme ("Simple", FALSE);
-  
-  if (!meta_ui_have_a_theme ())
     {
-      const char *dir_entry = NULL;
-      GError *err = NULL;
-      GDir   *themes_dir = NULL;
-      
-      if (!(themes_dir = g_dir_open (MUFFIN_DATADIR"/themes", 0, &err)))
-        {
-          meta_fatal (_("Failed to scan themes directory: %s\n"), err->message);
-          g_error_free (err);
-        } 
-      else 
-        {
-          while (((dir_entry = g_dir_read_name (themes_dir)) != NULL) && 
-                 (!meta_ui_have_a_theme ()))
-            {
-              meta_ui_set_current_theme (dir_entry, FALSE);
-            }
-          
-          g_dir_close (themes_dir);
-        }
+      meta_ui_set_current_theme ("Default", FALSE);
+      meta_warning (_("Could not find theme %s. Falling back to default theme."), meta_prefs_get_theme ());
     }
-  
-  if (!meta_ui_have_a_theme ())
-    meta_fatal (_("Could not find a theme! Be sure %s exists and contains the usual themes.\n"),
-                MUFFIN_DATADIR"/themes");
-  
+ 
+ 
   /* Connect to SM as late as possible - but before managing display,
    * or we might try to manage a window before we have the session
    * info

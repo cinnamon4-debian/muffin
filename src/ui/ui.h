@@ -88,13 +88,6 @@ void meta_ui_map_frame   (MetaUI *ui,
 void meta_ui_unmap_frame (MetaUI *ui,
                           Window  xwindow);
 
-void meta_ui_unflicker_frame_bg (MetaUI *ui,
-                                 Window  xwindow,
-                                 int     target_width,
-                                 int     target_height);
-void meta_ui_reset_frame_bg     (MetaUI *ui,
-                                 Window  xwindow);
-
 cairo_region_t *meta_ui_get_frame_bounds (MetaUI  *ui,
                                           Window   xwindow,
                                           int      window_width,
@@ -184,7 +177,4 @@ gboolean meta_ui_window_is_widget (MetaUI *ui,
 
 MetaUIDirection meta_ui_get_direction (void);
 
-#include "tabpopup.h"
-#include "tile-preview.h"
-#include "tile-hud.h"
 #endif

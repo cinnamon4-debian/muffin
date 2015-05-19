@@ -44,7 +44,6 @@
 #include <X11/Xutil.h>
 #include <cairo.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
-#include "tile-hud.h"
 
 typedef struct _MetaWindowQueue MetaWindowQueue;
 
@@ -703,6 +702,8 @@ void meta_window_get_work_area_for_monitor     (MetaWindow    *window,
 void meta_window_get_work_area_all_monitors    (MetaWindow    *window,
                                                 MetaRectangle *area);
 
+int meta_window_get_current_tile_monitor_number (MetaWindow *window);
+
 void meta_window_get_current_tile_area         (MetaWindow    *window,
                                                 MetaRectangle *tile_area);
 
@@ -769,15 +770,7 @@ gboolean meta_window_can_tile_top_bottom (MetaWindow *window);
 gboolean meta_window_can_tile_corner         (MetaWindow *window);
 MetaSide meta_window_get_tile_side (MetaWindow *window);
 
-inline void meta_window_get_size_limits   (const MetaWindow        *window,
-                                          const MetaFrameBorders  *borders,
-                                          gboolean include_frame,
-                                          MetaRectangle *min_size,
-                                          MetaRectangle *max_size);
-
 void meta_window_compute_tile_match (MetaWindow *window);
-
-HUDTileRestrictions meta_window_get_tile_restrictions (MetaWindow *window);
 
 gboolean meta_window_mouse_on_edge (MetaWindow *window,
                                     gint        x,

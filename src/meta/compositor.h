@@ -153,8 +153,6 @@ void meta_compositor_set_updates          (MetaCompositor *compositor,
                                            MetaWindow     *window,
                                            gboolean        updates);
 
-void meta_compositor_update_workspace_geometry (MetaCompositor *compositor,
-                                                MetaWorkspace  *workspace);
 void meta_compositor_sync_stack                (MetaCompositor *compositor,
                                                 MetaScreen     *screen,
                                                 GList          *stack);
@@ -170,5 +168,24 @@ void meta_compositor_tile_window       (MetaCompositor      *compositor,
                                         MetaWindow          *window,
                                         MetaRectangle       *old_rect,
                                         MetaRectangle       *new_rect);
+
+void meta_compositor_show_tile_preview (MetaCompositor  *compositor,
+                                        MetaScreen      *screen,
+                                        MetaWindow      *window,
+                                        MetaRectangle   *tile_rect,
+                                        int             tile_monitor_number,
+                                        guint           snap_queued);
+
+void meta_compositor_hide_tile_preview (MetaCompositor  *compositor,
+                                        MetaScreen      *screen);
+
+void meta_compositor_show_hud_preview (MetaCompositor   *compositor,
+                                       MetaScreen       *screen,
+                                       guint            current_proximity_zone,
+                                       MetaRectangle    *work_area,
+                                       guint            snap_queued);
+
+void meta_compositor_hide_hud_preview (MetaCompositor   *compositor,
+                                       MetaScreen       *screen);
 
 #endif /* META_COMPOSITOR_H */

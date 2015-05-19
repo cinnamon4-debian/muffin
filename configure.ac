@@ -1,8 +1,8 @@
 AC_PREREQ(2.50)
 
 m4_define([muffin_major_version], [2])
-m4_define([muffin_minor_version], [4])
-m4_define([muffin_micro_version], [5])
+m4_define([muffin_minor_version], [6])
+m4_define([muffin_micro_version], [0])
 
 m4_define([muffin_version],
           [muffin_major_version.muffin_minor_version.muffin_micro_version])
@@ -10,11 +10,12 @@ m4_define([muffin_version],
 m4_define([muffin_plugin_api_version], [3])
 
 AC_INIT([muffin], [muffin_version],
-        [http://bugzilla.gnome.org/enter_bug.cgi?product=muffin])
+        [https://github.com/linuxmint/muffin/issues])
 
 AC_CONFIG_SRCDIR(src/core/display.c)
 AC_CONFIG_HEADERS(config.h)
 
+AC_CONFIG_MACRO_DIR(m4)
 AM_INIT_AUTOMAKE([1.11 no-dist-gzip dist-xz tar-ustar subdir-objects])
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])],)
 AM_MAINTAINER_MODE([enable])
@@ -78,13 +79,13 @@ CANBERRA_GTK_VERSION=0.26
 CLUTTER_PACKAGE=clutter-1.0
 
 MUFFIN_PC_MODULES="
-   gtk+-3.0 >= 3.3.7
+   gtk+-3.0 >= 3.9.12
    gio-2.0 >= 2.25.10
-   pango >= 1.2.0
+   pango >= 1.14.0
    cairo >= 1.10.0
-   cinnamon-desktop >= 2.3.0
-   xcomposite >= 0.2 xfixes xrender xdamage
-   $CLUTTER_PACKAGE >= 1.9.10
+   cinnamon-desktop >= 2.4.0
+   xcomposite >= 0.3 xfixes xrender xdamage
+   $CLUTTER_PACKAGE >= 1.10.0
    cogl-1.0 >= 1.9.6
    gl
 "
@@ -99,6 +100,11 @@ AC_ARG_ENABLE(verbose-mode,
 if test x$enable_verbose_mode = xyes; then
     AC_DEFINE(WITH_VERBOSE_MODE,1,[Build with verbose mode support])
 fi
+
+AC_ARG_ENABLE([gtk-doc],
+  AC_HELP_STRING([--enable-gtk-doc],
+                 [use gtk-doc to build documentation [[default=yes]]]),,
+  enable_gtk_doc=yes)
 
 AC_ARG_ENABLE(sm,
   AC_HELP_STRING([--disable-sm],
@@ -131,9 +137,7 @@ AC_CHECK_HEADERS(execinfo.h, [AC_CHECK_FUNCS(backtrace)])
 AM_GLIB_GNU_GETTEXT
 
 ## here we get the flags we'll actually use
-# GRegex requires Glib-2.14.0
-PKG_CHECK_MODULES(ALL, glib-2.0 >= 2.14.0)
-# gtk_window_set_icon_name requires gtk2+-2.6.0
+PKG_CHECK_MODULES(ALL, glib-2.0 >= 2.37.3)
 PKG_CHECK_MODULES(MUFFIN_MESSAGE, gtk+-3.0)
 PKG_CHECK_MODULES(MUFFIN_WINDOW_DEMO, gtk+-3.0)
 
@@ -185,7 +189,7 @@ else
   fi
 fi
 
-INTROSPECTION_VERSION=0.9.5
+INTROSPECTION_VERSION=0.9.2
 GOBJECT_INTROSPECTION_CHECK([$INTROSPECTION_VERSION])
 
 if test x$found_introspection != xno; then
@@ -415,13 +419,15 @@ AM_PATH_PYTHON([2.5])
 # Use gnome-doc-utils:
 GNOME_DOC_INIT([0.8.0])
 
+GTK_DOC_CHECK([1.15], [--flavour no-tmpl])
+
 #### Warnings (last since -Werror can disturb other tests)
 
 # Stay command-line compatible with the gnome-common configure option. Here
 # minimum/yes/maximum are the same, however.
 AC_ARG_ENABLE(compile_warnings,
   AS_HELP_STRING([--enable-compile-warnings=@<:@no/minimum/yes/maximum/error@:>@],[Turn on compiler warnings]),,
-  enable_compile_warnings=error)
+  enable_compile_warnings=yes)
 
 changequote(,)dnl
 if test "$enable_compile_warnings" != no ; then
@@ -478,8 +484,11 @@ changequote([,])dnl
 
 AC_CONFIG_FILES([
 Makefile
+data/Makefile
 doc/Makefile
 doc/man/Makefile
+doc/reference/Makefile
+doc/reference/muffin-docs.sgml
 src/Makefile
 src/wm-tester/Makefile
 src/libmuffin.pc
