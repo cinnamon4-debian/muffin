@@ -1,5 +1,61 @@
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 
+/**
+ * SECTION:compositor
+ * @title: MetaCompositor
+ * @short_Description: Compositor API
+ *
+ * At a high-level, a window is not-visible or visible. When a
+ * window is added (with meta_compositor_add_window()) it is not visible.
+ * meta_compositor_show_window() indicates a transition from not-visible to
+ * visible. Some of the reasons for this:
+ *
+ * - Window newly created
+ * - Window is unminimized
+ * - Window is moved to the current desktop
+ * - Window was made sticky
+ *
+ * meta_compositor_hide_window() indicates that the window has transitioned from
+ * visible to not-visible. Some reasons include:
+ *
+ * - Window was destroyed
+ * - Window is minimized
+ * - Window is moved to a different desktop
+ * - Window no longer sticky.
+ *
+ * Note that combinations are possible - a window might have first
+ * been minimized and then moved to a different desktop. The 'effect' parameter
+ * to meta_compositor_show_window() and meta_compositor_hide_window() is a hint
+ * as to the appropriate effect to show the user and should not
+ * be considered to be indicative of a state change.
+ *
+ * When the active workspace is changed, meta_compositor_switch_workspace() is
+ * called first, then meta_compositor_show_window() and
+ * meta_compositor_hide_window() are called individually for each window
+ * affected, with an effect of META_COMP_EFFECT_NONE.
+ * If hiding windows will affect the switch workspace animation, the
+ * compositor needs to delay hiding the windows until the switch
+ * workspace animation completes.
+ *
+ * meta_compositor_maximize_window() and meta_compositor_unmaximize_window()
+ * are transitions within the visible state. The window is resized __before__
+ * the call, so it may be necessary to readjust the display based on the
+ * old_rect to start the animation.
+ *
+ * # Containers #
+ *
+ * There's two containers in the stage that are used to place window actors, here
+ * are listed in the order in which they are painted:
+ *
+ * - window group, accessible with meta_get_window_group_for_screen()
+ * - top window group, accessible with meta_get_top_window_group_for_screen()
+ *
+ * Muffin will place actors representing windows in the window group, except for
+ * override-redirect windows (ie. popups and menus) which will be placed in the
+ * top window group.
+ */
+
+
 #include <config.h>
 
 #include <clutter/x11/clutter-x11.h>
@@ -385,7 +441,6 @@ meta_begin_modal_for_plugin (MetaScreen       *screen,
   Display        *xdpy       = meta_display_get_xdisplay (display);
   MetaCompositor *compositor = display->compositor;
   gboolean pointer_grabbed = FALSE;
-  gboolean keyboard_grabbed = FALSE;
   int result;
 
   if (compositor->modal_plugin != NULL || display->grab_op != META_GRAB_OP_NONE)
@@ -416,8 +471,6 @@ meta_begin_modal_for_plugin (MetaScreen       *screen,
 
       if (result != Success)
         goto fail;
-
-      keyboard_grabbed = TRUE;
     }
 
   display->grab_op = META_GRAB_OP_COMPOSITOR;
@@ -433,8 +486,6 @@ meta_begin_modal_for_plugin (MetaScreen       *screen,
  fail:
   if (pointer_grabbed)
     XUngrabPointer (xdpy, timestamp);
-  if (keyboard_grabbed)
-    XUngrabKeyboard (xdpy, timestamp);
 
   return FALSE;
 }
@@ -594,9 +645,7 @@ meta_compositor_manage_screen (MetaCompositor *compositor,
 
   clutter_actor_hide (info->hidden_group);
 
-  info->plugin_mgr =
-    meta_plugin_manager_get (screen);
-  meta_plugin_manager_initialize (info->plugin_mgr);
+  info->plugin_mgr = meta_plugin_manager_new (screen);
 
   /*
    * Delay the creation of the overlay window as long as we can, to avoid
@@ -906,29 +955,6 @@ meta_compositor_unmaximize_window (MetaCompositor    *compositor,
     return;
 
   meta_window_actor_unmaximize (window_actor, old_rect, new_rect);
-}
-
-void
-meta_compositor_update_workspace_geometry (MetaCompositor *compositor,
-                                           MetaWorkspace  *workspace)
-{
-#if 0
-  /* FIXME -- should do away with this function in favour of MetaWorkspace
-   * signal.
-   */
-  MetaScreen     *screen = meta_workspace_get_screen (workspace);
-  MetaCompScreen *info;
-  MetaPluginManager *mgr;
-
-  DEBUG_TRACE ("meta_compositor_update_workspace_geometry\n");
-  info = meta_screen_get_compositor_data (screen);
-  mgr  = info->plugin_mgr;
-
-  if (!mgr || !workspace)
-    return;
-
-  meta_plugin_manager_update_workspace (mgr, workspace);
-#endif
 }
 
 void
@@ -1424,4 +1450,64 @@ meta_compositor_flash_screen (MetaCompositor *compositor,
                          "opacity", 192,
                          "signal-after::completed", flash_in_completed, flash,
                          NULL);
+}
+
+void
+meta_compositor_show_tile_preview (MetaCompositor *compositor,
+                                   MetaScreen     *screen,
+                                   MetaWindow     *window,
+                                   MetaRectangle  *tile_rect,
+                                   int            tile_monitor_number,
+                                   guint          snap_queued)
+{
+    MetaCompScreen *info = meta_screen_get_compositor_data (screen);
+
+    if (!info->plugin_mgr)
+        return;
+
+    meta_plugin_manager_show_tile_preview (info->plugin_mgr,
+                                           window, tile_rect, tile_monitor_number,
+                                           snap_queued);
+}
+
+void
+meta_compositor_hide_tile_preview (MetaCompositor *compositor,
+                                   MetaScreen     *screen)
+{
+    MetaCompScreen *info = meta_screen_get_compositor_data (screen);
+
+    if (!info->plugin_mgr)
+        return;
+
+    meta_plugin_manager_hide_tile_preview (info->plugin_mgr);
+}
+
+void
+meta_compositor_show_hud_preview (MetaCompositor *compositor,
+                                  MetaScreen     *screen,
+                                  guint          current_proximity_zone,
+                                  MetaRectangle  *work_area,
+                                  guint          snap_queued)
+{
+    MetaCompScreen *info = meta_screen_get_compositor_data (screen);
+
+    if (!info->plugin_mgr)
+        return;
+
+    meta_plugin_manager_show_hud_preview (info->plugin_mgr,
+                                          current_proximity_zone,
+                                          work_area,
+                                          snap_queued);
+}
+
+void
+meta_compositor_hide_hud_preview (MetaCompositor *compositor,
+                                  MetaScreen     *screen)
+{
+    MetaCompScreen *info = meta_screen_get_compositor_data (screen);
+
+    if (!info->plugin_mgr)
+        return;
+
+    meta_plugin_manager_hide_hud_preview (info->plugin_mgr);
 }

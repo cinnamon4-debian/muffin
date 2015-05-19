@@ -66,9 +66,7 @@ meta_ui_init (void)
    * GDK will no longer generate the core XEvents we process.
    * So at least for now, enforce the previous behavior.
    */
-#if GTK_CHECK_VERSION(2, 91, 7)
   gdk_disable_multidevice ();
-#endif
 
   if (!gtk_init_check (NULL, NULL))
     meta_fatal ("Unable to open X display %s\n", XDisplayName (NULL));
@@ -335,6 +333,17 @@ meta_ui_get_corner_radiuses (MetaUI *ui,
                                    bottom_left, bottom_right);
 }
 
+LOCAL_SYMBOL void
+set_background_none (Display *xdisplay,
+                     Window   xwindow)
+{
+  XSetWindowAttributes attrs;
+
+  attrs.background_pixmap = None;
+  XChangeWindowAttributes (xdisplay, xwindow,
+                           CWBackPixmap, &attrs);
+}
+
 LOCAL_SYMBOL Window
 meta_ui_create_frame_window (MetaUI *ui,
                              Display *xdisplay,
@@ -401,6 +410,7 @@ meta_ui_create_frame_window (MetaUI *ui,
 		    &attrs, attributes_mask);
 
   gdk_window_resize (window, width, height);
+  set_background_none (xdisplay, GDK_WINDOW_XID (window));
   
   meta_frames_manage_window (ui->frames, GDK_WINDOW_XID (window), window);
 
@@ -454,16 +464,6 @@ meta_ui_unmap_frame (MetaUI *ui,
 }
 
 LOCAL_SYMBOL void
-meta_ui_unflicker_frame_bg (MetaUI *ui,
-                            Window  xwindow,
-                            int     target_width,
-                            int     target_height)
-{
-  meta_frames_unflicker_bg (ui->frames, xwindow,
-                            target_width, target_height);
-}
-
-LOCAL_SYMBOL void
 meta_ui_update_frame_style (MetaUI  *ui,
                             Window   xwindow)
 {
@@ -475,13 +475,6 @@ meta_ui_repaint_frame (MetaUI *ui,
                        Window xwindow)
 {
   meta_frames_repaint_frame (ui->frames, xwindow);
-}
-
-LOCAL_SYMBOL void
-meta_ui_reset_frame_bg (MetaUI *ui,
-                        Window xwindow)
-{
-  meta_frames_reset_bg (ui->frames, xwindow);
 }
 
 LOCAL_SYMBOL cairo_region_t *
@@ -736,6 +729,7 @@ meta_ui_theme_get_frame_borders (MetaUI *ui,
   GtkStyleContext *style = NULL;
   PangoContext *context;
   const PangoFontDescription *font_desc;
+  PangoFontDescription *free_font_desc = NULL;
 
   if (meta_ui_have_a_theme ())
     {
@@ -745,7 +739,10 @@ meta_ui_theme_get_frame_borders (MetaUI *ui,
       if (!font_desc)
         {
           style = gtk_style_context_new ();
-          font_desc = gtk_style_context_get_font (style, 0);
+          gtk_style_context_get (style, GTK_STATE_FLAG_NORMAL,
+                                 GTK_STYLE_PROPERTY_FONT, &free_font_desc,
+                                 NULL);
+          font_desc = (const PangoFontDescription *) free_font_desc;
         }
 
       text_height = meta_pango_font_desc_get_text_height (font_desc, context);
@@ -753,6 +750,9 @@ meta_ui_theme_get_frame_borders (MetaUI *ui,
       meta_theme_get_frame_borders (meta_theme_get_current (),
                                     type, text_height, flags,
                                     borders);
+
+      if (free_font_desc)
+        pango_font_description_free (free_font_desc);
     }
   else
     {

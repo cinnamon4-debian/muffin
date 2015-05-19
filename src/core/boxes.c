@@ -1,6 +1,10 @@
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 
-/* Simple box operations */
+/**
+ * SECTION:boxes
+ * @title: MetaRectangle
+ * @short_description: Simple box operations
+ */
 
 /* 
  * Copyright (C) 2005, 2006 Elijah Newren
@@ -628,7 +632,6 @@ meta_rectangle_get_minimal_spanning_set_for_region (
   *temp_rect = *basic_rect;
   ret = g_list_prepend (NULL, temp_rect);
 
-  strut_iter = all_struts;
   for (strut_iter = all_struts; strut_iter; strut_iter = strut_iter->next)
     {
       GList *rect_iter; 

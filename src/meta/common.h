@@ -33,6 +33,12 @@
 #include <glib.h>
 #include <gtk/gtk.h>
 
+/**
+ * SECTION:common
+ * @title: Common
+ * @short_description: Muffin common types
+ */
+
 typedef struct _MetaResizePopup MetaResizePopup;
 
 typedef enum
@@ -415,7 +421,8 @@ typedef enum
 {
   META_PLACEMENT_MODE_AUTOMATIC,
   META_PLACEMENT_MODE_POINTER,
-  META_PLACEMENT_MODE_MANUAL
+  META_PLACEMENT_MODE_MANUAL,
+  META_PLACEMENT_MODE_CENTER
 } MetaPlacementMode;
 
 

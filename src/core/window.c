@@ -1,7 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 
-/* Muffin X managed windows */
-
 /*
  * Copyright (C) 2001 Havoc Pennington, Anders Carlsson
  * Copyright (C) 2002, 2003 Red Hat, Inc.
@@ -22,6 +20,12 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street - Suite 500, Boston, MA
  * 02110-1335, USA.
+ */
+
+/**
+ * SECTION:window
+ * @title: MetaWindow
+ * @short_description: Muffin X managed windows
  */
 
 #include <config.h>
@@ -4970,11 +4974,7 @@ meta_window_move_resize_internal (MetaWindow          *window,
                   window->frame->rect.width,
                   window->frame->rect.height);
     }
-  else
-    {
-      frame_size_dx = 0;
-      frame_size_dy = 0;
-    }
+
 
   /* For nice effect, when growing the window we want to move/resize
    * the frame first, when shrinking the window we want to move/resize
@@ -8659,7 +8659,8 @@ meta_window_show_menu (MetaWindow *window,
   //ops |= (META_MENU_OP_DELETE | META_MENU_OP_MINIMIZE | META_MENU_OP_MOVE | META_MENU_OP_RESIZE | META_MENU_OP_MOVE_NEW);
   ops |= (META_MENU_OP_DELETE | META_MENU_OP_MINIMIZE | META_MENU_OP_MOVE | META_MENU_OP_RESIZE);
 
-  if (!meta_window_titlebar_is_onscreen (window) &&
+  if (!meta_window_is_client_decorated (window) &&
+      !meta_window_titlebar_is_onscreen (window) &&
       window->type != META_WINDOW_DOCK &&
       window->type != META_WINDOW_DESKTOP)
     ops |= META_MENU_OP_RECOVER;
@@ -9044,6 +9045,44 @@ get_mask_from_snap_keysym (MetaWindow *window)
     return XkbKeysymToModifiers(window->display->xdisplay, pref[0]);
 }
 
+static inline void
+get_size_limits (const MetaWindow       *window,
+                 const MetaFrameBorders *borders,
+                       gboolean          include_frame,
+                       MetaRectangle    *min_size,
+                       MetaRectangle    *max_size)
+{
+  /* We pack the results into MetaRectangle structs just for convienience; we
+   * don't actually use the position of those rects.
+   */
+  min_size->width  = window->size_hints.min_width;
+  min_size->height = window->size_hints.min_height;
+  max_size->width  = window->size_hints.max_width;
+  max_size->height = window->size_hints.max_height;
+
+  if (include_frame)
+    {
+      int fw = borders->visible.left + borders->visible.right;
+      int fh = borders->visible.top + borders->visible.bottom;
+
+      min_size->width  += fw;
+      min_size->height += fh;
+      /* Do check to avoid overflow (e.g. max_size->width & max_size->height
+       * may be set to G_MAXINT by meta_set_normal_hints()).
+       */
+      if (max_size->width < (G_MAXINT - fw))
+        max_size->width += fw;
+      else
+        max_size->width = G_MAXINT;
+      if (max_size->height < (G_MAXINT - fh))
+        max_size->height += fh;
+      else
+        max_size->height = G_MAXINT;
+    }
+}
+
+
+
 static void
 update_move (MetaWindow  *window,
              gboolean     legacy_snap,
@@ -9295,7 +9334,7 @@ update_move (MetaWindow  *window,
     gboolean hminbad = FALSE;
     gboolean vminbad = FALSE;
     if (window->tile_mode != META_TILE_NONE) {
-        meta_window_get_size_limits (window, NULL, FALSE, &min_size, &max_size);
+        get_size_limits (window, NULL, FALSE, &min_size, &max_size);
         meta_window_get_current_tile_area (window, &target_size);
         hminbad = target_size.width < min_size.width;
         vminbad = target_size.height < min_size.height;
@@ -10122,12 +10161,7 @@ meta_window_get_tile_threshold_area_for_mode (MetaWindow    *window,
   g_return_if_fail (mode != META_TILE_NONE);
 
   if (window != NULL) {
-      tile_monitor_number = window->tile_monitor_number;
-      if (tile_monitor_number < 0)
-        {
-          meta_warning ("%s called with an invalid monitor number; using 0 instead\n", G_STRFUNC);
-          tile_monitor_number = 0;
-        }
+      tile_monitor_number = meta_window_get_current_tile_monitor_number(window);
       meta_window_get_work_area_for_monitor (window, tile_monitor_number, tile_area);
   } else {
     tile_area->x = work_area.x;
@@ -10185,6 +10219,20 @@ meta_window_get_tile_threshold_area_for_mode (MetaWindow    *window,
   }
 }
 
+int
+meta_window_get_current_tile_monitor_number (MetaWindow *window)
+{
+    int tile_monitor_number = window->tile_monitor_number;
+
+    if (tile_monitor_number < 0)
+    {
+        meta_warning ("%s called with an invalid monitor number, using 0 instead\n", G_STRFUNC);
+        tile_monitor_number = 0;
+    }
+
+    return tile_monitor_number;
+}
+
 LOCAL_SYMBOL void
 meta_window_get_current_tile_area (MetaWindow    *window,
                                    MetaRectangle *tile_area)
@@ -10193,12 +10241,7 @@ meta_window_get_current_tile_area (MetaWindow    *window,
 
   g_return_if_fail (window->tile_mode != META_TILE_NONE);
 
-  tile_monitor_number = window->tile_monitor_number;
-  if (tile_monitor_number < 0)
-    {
-      meta_warning ("%s called with an invalid monitor number; using 0 instead\n", G_STRFUNC);
-      tile_monitor_number = 0;
-    }
+  tile_monitor_number = meta_window_get_current_tile_monitor_number (window);
 
   meta_window_get_work_area_for_monitor (window, tile_monitor_number, tile_area);
 
@@ -11625,58 +11668,6 @@ meta_window_get_tile_type (MetaWindow *window)
     g_return_val_if_fail (META_IS_WINDOW (window), META_WINDOW_TILE_TYPE_NONE);
 
     return window->tile_type;
-}
-
-inline void
-meta_window_get_size_limits (const MetaWindow        *window,
-                             const MetaFrameBorders *borders,
-                                   gboolean          include_frame,
-                                   MetaRectangle    *min_size,
-                                   MetaRectangle    *max_size)
-{
-  /* We pack the results into MetaRectangle structs just for convienience; we
-   * don't actually use the position of those rects.
-   */
-  min_size->width  = window->size_hints.min_width;
-  min_size->height = window->size_hints.min_height;
-  max_size->width  = window->size_hints.max_width;
-  max_size->height = window->size_hints.max_height;
-
-  if (include_frame)
-    {
-      int fw = borders->visible.left + borders->visible.right;
-      int fh = borders->visible.top + borders->visible.bottom;
-
-      min_size->width  += fw;
-      min_size->height += fh;
-      /* Do check to avoid overflow (e.g. max_size->width & max_size->height
-       * may be set to G_MAXINT by meta_set_normal_hints()).
-       */
-      if (max_size->width < (G_MAXINT - fw))
-        max_size->width += fw;
-      else
-        max_size->width = G_MAXINT;
-      if (max_size->height < (G_MAXINT - fh))
-        max_size->height += fh;
-      else
-        max_size->height = G_MAXINT;
-    }
-}
-
-HUDTileRestrictions
-meta_window_get_tile_restrictions (MetaWindow *window)
-{
-    g_return_val_if_fail (window != NULL, 0);
-    HUDTileRestrictions ret = 0;
-
-    if (meta_window_can_tile_side_by_side (window))
-        ret |= HUD_CAN_TILE_SIDE_BY_SIDE;
-    if (meta_window_can_tile_top_bottom (window))
-        ret |= HUD_CAN_TILE_TOP_BOTTOM;
-    if (meta_window_can_tile_corner (window))
-        ret |= HUD_CAN_TILE_CORNER;
-
-    return ret;
 }
 
 #define ORIGIN_CONSTANT 1
