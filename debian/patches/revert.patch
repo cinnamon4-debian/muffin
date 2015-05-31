@@ -12,24 +12,20 @@ Origin: Debian
  src/wm-tester/Makefile.am          | 2 +-
  5 files changed, 5 insertions(+), 7 deletions(-)
 
-diff --git a/Makefile.am b/Makefile.am
-index 468bbd7..d9c9d31 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -1,8 +1,6 @@
  
- SUBDIRS=src po doc
+ SUBDIRS=src po doc data
  
 -ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 -
  EXTRA_DIST = HACKING MAINTAINERS rationales.txt
  
- DISTCLEANFILES = intltool-extract intltool-merge intltool-update po/stamp-it po/.intltool-merge-cache
-diff --git a/src/Makefile.am b/src/Makefile.am
-index ed17562..d3d7eb8 100644
+ DISTCHECK_CONFIGURE_FLAGS = --enable-gtk-doc
 --- a/src/Makefile.am
 +++ b/src/Makefile.am
-@@ -5,7 +5,7 @@ lib_LTLIBRARIES = libmuffin.la
+@@ -5,7 +5,7 @@
  
  SUBDIRS=wm-tester tools compositor/plugins
  
@@ -38,7 +34,7 @@ index ed17562..d3d7eb8 100644
  	$(MUFFIN_CFLAGS)						\
  	-I$(srcdir)							\
  	-I$(srcdir)/core						\
-@@ -229,7 +229,7 @@ INTROSPECTION_GIRS = Meta-$(api_version).gir
+@@ -223,7 +223,7 @@
  Meta-$(api_version).gir: libmuffin.la
  @META_GIR@_INCLUDES = GObject-2.0 CDesktopEnums-3.0 Gdk-3.0 Gtk-3.0 Clutter-1.0 xlib-2.0 xfixes-4.0
  @META_GIR@_PACKAGES = clutter-1.0 gtk+-3.0
@@ -47,8 +43,6 @@ index ed17562..d3d7eb8 100644
  @META_GIR@_LIBS = libmuffin.la
  @META_GIR@_FILES =				\
  	muffin-enum-types.h			\
-diff --git a/src/compositor/plugins/Makefile.am b/src/compositor/plugins/Makefile.am
-index 5941c7b..bd8d105 100644
 --- a/src/compositor/plugins/Makefile.am
 +++ b/src/compositor/plugins/Makefile.am
 @@ -1,7 +1,7 @@
@@ -60,8 +54,6 @@ index 5941c7b..bd8d105 100644
  
  default_la_CFLAGS   = -fPIC
  default_la_SOURCES  = default.c
-diff --git a/src/tools/Makefile.am b/src/tools/Makefile.am
-index 3415542..284275c 100644
 --- a/src/tools/Makefile.am
 +++ b/src/tools/Makefile.am
 @@ -3,7 +3,7 @@
@@ -73,8 +65,6 @@ index 3415542..284275c 100644
  	-I$(top_srcdir)/src \
  	-DMUFFIN_ICON_DIR=\"$(pkgdatadir)/icons\" \
  	-DMUFFIN_LOCALEDIR=\"$(prefix)/@DATADIRNAME@/locale\"
-diff --git a/src/wm-tester/Makefile.am b/src/wm-tester/Makefile.am
-index fcf5e61..ecae00b 100644
 --- a/src/wm-tester/Makefile.am
 +++ b/src/wm-tester/Makefile.am
 @@ -1,5 +1,5 @@
@@ -84,6 +74,3 @@ index fcf5e61..ecae00b 100644
  
  wm_tester_SOURCES= 				\
  	main.c
--- 
-1.9.1
-
