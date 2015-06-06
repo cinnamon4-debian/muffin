@@ -34,7 +34,7 @@ override_dh_strip:
 	dh_strip --dbg-package=muffin-dbg
 
 override_dh_install:
-	dh_install -X.la -Xusr/share/gtk-doc/html/muffin --fail-missing
+	dh_install -X.la --fail-missing
 
 run_dh_acc:
 	# The package needs to be installed (@ in autopkgtest)
