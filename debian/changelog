@@ -1,4 +1,4 @@
-muffin (2.6.1-2~) UNRELEASED; urgency=critical
+muffin (2.6.1-2) unstable; urgency=critical
 
   [ Maximiliano Curia ]
   * Add rm_conffile rule for /etc/sgml/muffin-common.cat. (Closes:
@@ -8,7 +8,7 @@ muffin (2.6.1-2~) UNRELEASED; urgency=critical
   * Add Breaks for cinnamon, as this package is not backwards compatible.
     (Closes: #788203)
 
- -- Maximiliano Curia <maxy@debian.org>  Thu, 04 Jun 2015 09:34:37 +0200
+ -- Margarita Manterola <marga@debian.org>  Tue, 09 Jun 2015 19:34:10 +0200
 
 muffin (2.6.1-1) unstable; urgency=medium
 
