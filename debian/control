@@ -64,6 +64,7 @@ Description: lightweight window and compositing manager
 Package: libmuffin0
 Section: libs
 Architecture: any
+Breaks: cinnamon (<= 2.6.0~)
 Pre-Depends: ${misc:Pre-Depends}
 Depends: muffin-common (= ${source:Version}), ${misc:Depends}, ${shlibs:Depends}
 Description: lightweight window and compositing manager (shared library)
