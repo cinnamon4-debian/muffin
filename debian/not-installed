@@ -6,3 +6,5 @@ usr/lib/*/muffin/*.gir
 usr/lib/*/muffin/Meta-Muffin.0.typelib
 # manpages are compressed
 usr/share/man/man1/*.1
+# exclude dev docs
+usr/share/gtk-doc/html/muffin

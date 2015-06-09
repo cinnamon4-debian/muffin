@@ -1,11 +1,7 @@
 muffin (2.6.1-2~) UNRELEASED; urgency=medium
 
-  [ Maximiliano Curia ]
   * Add rm_conffile rule for /etc/sgml/muffin-common.cat. (Closes:
     #787695)
-
-  [ Fabio Fantoni ]
-  * Added muffin-doc package.
 
  -- Maximiliano Curia <maxy@debian.org>  Thu, 04 Jun 2015 09:34:37 +0200
 
