@@ -19,11 +19,7 @@ muffin (2.6.1-2) unstable; urgency=critical
 
 muffin (2.6.1-1) unstable; urgency=medium
 
-  [ Maximiliano Curia ]
   * New upstream release.
-
-  [ Fabio Fantoni ]
-  * 
 
  -- Maximiliano Curia <maxy@debian.org>  Wed, 03 Jun 2015 21:46:20 +0200
 
