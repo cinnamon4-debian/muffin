@@ -1,6 +1,8 @@
 muffin (2.8.1-1~) UNRELEASED; urgency=medium
 
   * New upstream release (2.8.1).
+  * Remove patch: support-muffin-typelib
+  * Remove patch: revert.patch
 
  -- Maximiliano Curia <maxy@debian.org>  Wed, 21 Oct 2015 12:58:23 +0200
 
