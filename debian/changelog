@@ -1,3 +1,9 @@
+muffin (2.8.1-1~) UNRELEASED; urgency=medium
+
+  * New upstream release (2.8.1).
+
+ -- Maximiliano Curia <maxy@debian.org>  Wed, 21 Oct 2015 12:58:23 +0200
+
 muffin (2.6.1-3) unstable; urgency=medium
 
   [ Fabio Fantoni ]
