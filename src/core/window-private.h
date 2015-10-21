@@ -267,6 +267,9 @@ struct _MetaWindow
   
   /* whether net_wm_user_time has been set yet */
   guint net_wm_user_time_set : 1;
+
+  /* whether net_wm_icon_geometry has been set */
+  guint icon_geometry_set: 1;
   
   /* These are the flags from WM_PROTOCOLS */
   guint take_focus : 1;
@@ -383,14 +386,21 @@ struct _MetaWindow
   /* if non-NULL, the bounds of the window frame */
   cairo_region_t *frame_bounds;
 
+  /* if TRUE, the we have the new form of sync request counter which
+   * also handles application frames */
+  guint extended_sync_request_counter : 1;
+
   /* Note: can be NULL */
   GSList *struts;
 
 #ifdef HAVE_XSYNC
   /* XSync update counter */
   XSyncCounter sync_request_counter;
-  guint sync_request_serial;
-  GTimeVal sync_request_time;
+  gint64 sync_request_serial;
+  gint64 sync_request_wait_serial;
+  guint sync_request_timeout_id;
+  /* alarm monitoring client's _NET_WM_SYNC_REQUEST_COUNTER */
+  XSyncAlarm sync_request_alarm;
 #endif
   
   /* Number of UnmapNotify that are caused by us, if
@@ -442,6 +452,9 @@ struct _MetaWindow
   MetaRectangle user_rect;
 
   MetaRectangle snapped_rect;
+
+  /* Cached net_wm_icon_geometry */
+  MetaRectangle icon_geometry;
 
   /* Requested geometry */
   int border_width;
@@ -650,6 +663,8 @@ void meta_window_send_icccm_message (MetaWindow *window,
                                      Atom        atom,
                                      guint32     timestamp);
 
+void meta_window_create_sync_request_alarm  (MetaWindow *window);
+void meta_window_destroy_sync_request_alarm (MetaWindow *window);
 
 void     meta_window_move_resize_request(MetaWindow *window,
                                          guint       value_mask,
@@ -682,6 +697,11 @@ void     meta_window_shove_titlebar_onscreen (MetaWindow *window);
 
 void meta_window_set_gravity (MetaWindow *window,
                               int         gravity);
+
+#ifdef HAVE_XSYNC
+ void meta_window_update_sync_request_counter (MetaWindow *window,
+                                               gint64      new_counter_value);
+#endif /* HAVE_XSYNC */
 
 void meta_window_handle_mouse_grab_op_event (MetaWindow *window,
                                              XEvent     *event);
@@ -789,5 +809,7 @@ MetaWindowTileType  meta_window_get_tile_type (MetaWindow *window);
 
 gboolean meta_window_is_client_decorated (MetaWindow *window);
 
+
+gboolean meta_window_updates_are_frozen (MetaWindow *window);
 
 #endif
