@@ -1,4 +1,4 @@
-# SymbolsHelper-Confirmed: 2.6.0 amd64
+# SymbolsHelper-Confirmed: 2.8.1 amd64
 libmuffin.so.0 libmuffin0 #MINVER#
  _meta_plugin_effect_started@Base 1.1.0
  (optional)meta_accel_label_get_type@Base 1.1.0
@@ -20,10 +20,12 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_compositor_hide_window@Base 1.1.0
  meta_compositor_manage_screen@Base 1.1.0
  meta_compositor_maximize_window@Base 1.1.0
+ meta_compositor_monotonic_time_to_server_time@Base 2.8.1
  meta_compositor_new@Base 1.1.0
  meta_compositor_process_event@Base 1.1.0
+ meta_compositor_queue_frame_drawn@Base 2.8.1
  meta_compositor_remove_window@Base 1.1.0
- meta_compositor_set_updates@Base 1.1.0
+ meta_compositor_set_updates_frozen@Base 2.8.1
  meta_compositor_show_hud_preview@Base 2.6.0
  meta_compositor_show_tile_preview@Base 2.6.0
  meta_compositor_show_window@Base 1.1.0
@@ -71,13 +73,16 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_display_keybinding_action_invoke_by_code@Base 1.8.1
  meta_display_list_windows@Base 1.1.0
  meta_display_lookup_group@Base 1.1.0
+ meta_display_lookup_sync_alarm@Base 2.8.1
  meta_display_rebuild_keybindings@Base 1.8.1
+ meta_display_register_sync_alarm@Base 2.8.1
  meta_display_remove_custom_keybinding@Base 1.8.1
  meta_display_remove_keybinding@Base 1.1.0
  meta_display_screen_for_root@Base 1.1.0
  meta_display_set_input_focus_window@Base 1.1.0
  meta_display_sort_windows_by_stacking@Base 1.1.0
  meta_display_unmanage_screen@Base 1.1.0
+ meta_display_unregister_sync_alarm@Base 2.8.1
  meta_display_xserver_time_is_before@Base 1.1.0
  meta_display_xwindow_is_a_no_focus_window@Base 1.1.0
  meta_edge_type_get_type@Base 1.1.0
@@ -256,6 +261,8 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_screen_get_active_workspace@Base 1.1.0
  meta_screen_get_active_workspace_index@Base 1.1.0
  meta_screen_get_compositor_data@Base 1.1.0
+ meta_screen_get_current_monitor@Base 2.8.1
+ meta_screen_get_current_monitor_info@Base 2.8.1
  meta_screen_get_display@Base 1.1.0
  meta_screen_get_monitor_geometry@Base 1.1.0
  meta_screen_get_mouse_window@Base 1.7.3
@@ -301,6 +308,11 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_show_dialog@Base 1.1.0
  meta_side_get_type@Base 1.1.0
  meta_stack_layer_get_type@Base 1.1.0
+ meta_sync_ring_after_frame@Base 2.8.1
+ meta_sync_ring_destroy@Base 2.8.1
+ meta_sync_ring_handle_event@Base 2.8.1
+ meta_sync_ring_init@Base 2.8.1
+ meta_sync_ring_insert_wait@Base 2.8.1
  meta_tab_list_get_type@Base 1.1.0
  meta_tab_show_type_get_type@Base 1.1.0
  meta_theme_draw_frame@Base 1.1.0
@@ -320,6 +332,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_warning@Base 1.1.0
  meta_window_activate@Base 1.1.0
  meta_window_activate_with_workspace@Base 1.1.0
+ meta_window_actor_frame_complete@Base 2.8.1
  meta_window_actor_get_description@Base 1.1.0
  meta_window_actor_get_meta_window@Base 1.1.0
  meta_window_actor_get_texture@Base 1.1.0
@@ -328,6 +341,10 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_actor_get_x_window@Base 1.1.0
  meta_window_actor_is_destroyed@Base 1.1.0
  meta_window_actor_is_override_redirect@Base 1.1.0
+ meta_window_actor_post_paint@Base 2.8.1
+ meta_window_actor_pre_paint@Base 2.8.1
+ meta_window_actor_queue_frame_drawn@Base 2.8.1
+ meta_window_actor_set_updates_frozen@Base 2.8.1
  meta_window_actor_show@Base 1.1.0
  meta_window_actor_showing_on_its_workspace@Base 1.1.0
  meta_window_appears_focused@Base 1.1.0
@@ -336,7 +353,9 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_change_workspace_by_index@Base 1.1.0
  meta_window_compute_group@Base 1.1.0
  meta_window_configure_notify@Base 1.1.0
+ meta_window_create_sync_request_alarm@Base 2.8.1
  meta_window_delete@Base 1.1.0
+ meta_window_destroy_sync_request_alarm@Base 2.8.1
  meta_window_find_root_ancestor@Base 1.1.0
  meta_window_foreach_ancestor@Base 1.1.0
  meta_window_foreach_transient@Base 1.1.0
@@ -419,6 +438,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_resize@Base 1.1.0
  meta_window_set_compositor_private@Base 1.1.0
  meta_window_set_demands_attention@Base 1.1.0
+ meta_window_set_icon_geometry@Base 2.8.1
  meta_window_set_tile_type@Base 2.0.5
  meta_window_showing_on_its_workspace@Base 1.1.0
  meta_window_shutdown_group@Base 1.1.0
@@ -432,6 +452,8 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_unset_demands_attention@Base 1.1.0
  meta_window_unstick@Base 1.1.0
  meta_window_update_struts@Base 1.1.0
+ meta_window_update_sync_request_counter@Base 2.8.1
+ meta_window_updates_are_frozen@Base 2.8.1
  meta_workspace_activate@Base 1.1.0
  meta_workspace_activate_with_focus@Base 1.1.0
  meta_workspace_get_neighbor@Base 1.1.0
