@@ -1,11 +1,12 @@
-muffin (2.8.1-1~) UNRELEASED; urgency=medium
+muffin (2.8.2-1~) UNRELEASED; urgency=medium
 
   * New upstream release (2.8.1).
   * Remove patch: support-muffin-typelib
   * Remove patch: revert.patch
   * Update symbols files.
+  * New upstream release (2.8.2).
 
- -- Maximiliano Curia <maxy@debian.org>  Wed, 21 Oct 2015 12:58:23 +0200
+ -- Maximiliano Curia <maxy@debian.org>  Tue, 10 Nov 2015 15:42:21 +0100
 
 muffin (2.6.1-3) unstable; urgency=medium
 
