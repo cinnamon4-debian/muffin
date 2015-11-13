@@ -507,6 +507,8 @@ meta_display_open (void)
   the_display->allow_terminal_deactivation = TRUE; /* Only relevant for when a
                                                   terminal has the focus */
 
+  the_display->rebuild_keybinding_idle_id = 0;
+
   /* FIXME copy the checks from GDK probably */
   the_display->static_gravity_works = g_getenv ("MUFFIN_USE_STATIC_GRAVITY") != NULL;
   
@@ -5595,7 +5597,7 @@ Atom meta_display_get_atom (MetaDisplay *display, MetaAtom meta_atom)
  * _NET_SUPPORTING_WM_CHECK mechanism of EWMH). For use by plugins that wish
  * to attach additional custom properties to this window.
  *
- * Return value: (transfer none): xid of the leader window.
+ * Return value: xid of the leader window.
  **/
 Window
 meta_display_get_leader_window (MetaDisplay *display)
