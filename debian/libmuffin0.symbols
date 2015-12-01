@@ -265,6 +265,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_screen_get_current_monitor_info@Base 2.8.1
  meta_screen_get_display@Base 1.1.0
  meta_screen_get_monitor_geometry@Base 1.1.0
+ meta_screen_get_monitor_index_for_rect@Base 2.8.4
  meta_screen_get_mouse_window@Base 1.7.3
  meta_screen_get_n_monitors@Base 1.1.0
  meta_screen_get_n_workspaces@Base 1.1.0
