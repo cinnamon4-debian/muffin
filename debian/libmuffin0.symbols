@@ -357,6 +357,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_create_sync_request_alarm@Base 2.8.1
  meta_window_delete@Base 1.1.0
  meta_window_destroy_sync_request_alarm@Base 2.8.1
+ meta_window_extend_by_frame@Base 2.8.5
  meta_window_find_root_ancestor@Base 1.1.0
  meta_window_foreach_ancestor@Base 1.1.0
  meta_window_foreach_transient@Base 1.1.0
@@ -448,6 +449,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_tile_type_get_type@Base 2.0.5
  meta_window_toplevel_is_mapped@Base 1.1.0
  meta_window_type_get_type@Base 1.1.0
+ meta_window_unextend_by_frame@Base 2.8.5
  meta_window_unmaximize@Base 1.1.0
  meta_window_unminimize@Base 1.1.0
  meta_window_unset_demands_attention@Base 1.1.0

@@ -1,6 +1,7 @@
 muffin (2.8.5-1~) UNRELEASED; urgency=medium
 
   * New upstream release.
+  * Update symbols files.
 
  -- Fabio Fantoni <fantonifabio@tiscali.it>  Sun, 13 Mar 2016 15:31:22 +0100
 
