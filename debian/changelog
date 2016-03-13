@@ -1,9 +1,12 @@
-muffin (2.8.5-1~) UNRELEASED; urgency=medium
+muffin (2.8.5-1) unstable; urgency=medium
 
+  [ Fabio Fantoni ]
   * New upstream release.
   * Update symbols files.
 
- -- Fabio Fantoni <fantonifabio@tiscali.it>  Sun, 13 Mar 2016 15:31:22 +0100
+  [ Maximiliano Curia ]
+
+ -- Maximiliano Curia <maxy@debian.org>  Sun, 13 Mar 2016 20:04:43 +0100
 
 muffin (2.8.4-1) unstable; urgency=medium
 
