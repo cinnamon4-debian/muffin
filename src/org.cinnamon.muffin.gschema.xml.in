@@ -19,16 +19,6 @@
       </_description>
     </key>
 
-    <key name="live-hidden-windows" type="b">
-      <default>false</default>
-      <_summary>Live Hidden Windows</_summary>
-      <_description>
-        Determines whether hidden windows (i.e., minimized windows and
-        windows on other workspaces than the current one) should be kept
-        alive.
-      </_description>
-    </key>
-
     <key name="edge-tiling" type="b">
       <default>true</default>
       <_summary>Enable edge tiling and snapping</_summary>
@@ -36,6 +26,12 @@
         If enabled, allows you to drag windows to the screen edges
         to tile or snap them in place.
       </_description>
+    </key>
+
+    <key name="edge-resistance-window" type="b">
+      <default>true</default>
+      <summary>Enable windows edge resitance</summary>
+      <description>Determine whether the window edges can snap to each other.</description>
     </key>
 
     <key name="dynamic-workspaces" type="b">

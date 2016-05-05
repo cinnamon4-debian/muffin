@@ -669,6 +669,7 @@ meta_compositor_manage_screen (MetaCompositor *compositor,
 
   clutter_container_add (CLUTTER_CONTAINER (info->stage),
                          info->window_group,
+                         info->top_window_group,
                          info->overlay_group,
 			 info->hidden_group,
                          NULL);
@@ -1170,7 +1171,7 @@ meta_compositor_sync_stack (MetaCompositor  *compositor,
           old_actor = old_stack->data;
           old_window = meta_window_actor_get_meta_window (old_actor);
 
-          if (old_window->hidden &&
+          if ((old_window->hidden || old_window->unmanaging) &&
               !meta_window_actor_effect_in_progress (old_actor))
             {
               old_stack = g_list_delete_link (old_stack, old_stack);
@@ -1204,7 +1205,7 @@ meta_compositor_sync_stack (MetaCompositor  *compositor,
        * filtered out non-animating hidden windows above.
        */
       if (old_actor &&
-          (!stack_actor || old_window->hidden))
+          (!stack_actor || old_window->hidden || old_window->unmanaging))
         {
           actor = old_actor;
           window = old_window;
@@ -1227,30 +1228,6 @@ meta_compositor_sync_stack (MetaCompositor  *compositor,
     }
 
   sync_actor_stacking (info);
-}
-
-void
-meta_compositor_window_mapped (MetaCompositor *compositor,
-                               MetaWindow     *window)
-{
-  MetaWindowActor *window_actor = META_WINDOW_ACTOR (meta_window_get_compositor_private (window));
-  DEBUG_TRACE ("meta_compositor_window_mapped\n");
-  if (!window_actor)
-    return;
-
-  meta_window_actor_mapped (window_actor);
-}
-
-void
-meta_compositor_window_unmapped (MetaCompositor *compositor,
-                                 MetaWindow     *window)
-{
-  MetaWindowActor *window_actor = META_WINDOW_ACTOR (meta_window_get_compositor_private (window));
-  DEBUG_TRACE ("meta_compositor_window_unmapped\n");
-  if (!window_actor)
-    return;
-
-  meta_window_actor_unmapped (window_actor);
 }
 
 void

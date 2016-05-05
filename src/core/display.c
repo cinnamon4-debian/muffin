@@ -142,6 +142,7 @@ enum
   GRAB_OP_END,
   ZOOM_SCROLL_IN,
   ZOOM_SCROLL_OUT,
+  BELL,
   LAST_SIGNAL
 };
 
@@ -295,6 +296,14 @@ meta_display_class_init (MetaDisplayClass *klass)
                   0,
                   NULL, NULL, NULL,
                   G_TYPE_NONE, 0);
+
+  display_signals[BELL] =
+    g_signal_new ("bell",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_LAST,
+                  0,
+                  NULL, NULL, NULL,
+                  G_TYPE_NONE, 1, META_TYPE_WINDOW);
 
   g_object_class_install_property (object_class,
                                    PROP_FOCUS_WINDOW,
@@ -1769,9 +1778,8 @@ event_callback (XEvent   *event,
                               window->desc);
                 }
 
-              if (display->compositor)
-                meta_compositor_window_shape_changed (display->compositor,
-                                                      window);
+              meta_compositor_window_shape_changed (display->compositor,
+                                                    window);
             }
         }
       else
@@ -1868,8 +1876,10 @@ event_callback (XEvent   *event,
                 meta_stack_set_positions (screen->stack,
                                           display->grab_old_window_stacking);
             }
-          meta_display_end_grab_op (display,
-                                    event->xbutton.time);
+
+          if (display->grab_window->tile_mode == META_TILE_NONE)
+              meta_display_end_grab_op (display,
+                                        event->xbutton.time);
         }
       else if (window && display->grab_op == META_GRAB_OP_NONE)
         {
@@ -2298,7 +2308,7 @@ event_callback (XEvent   *event,
 
           if (display->grab_op != META_GRAB_OP_NONE &&
               display->grab_window == window &&
-              ((window->frame == NULL) || !window->frame->mapped))
+              window->frame == NULL)
             meta_display_end_grab_op (display, timestamp);
       
           if (!frame_was_receiver)
@@ -2335,8 +2345,7 @@ event_callback (XEvent   *event,
       /* NB: override redirect windows wont cause a map request so we
        * watch out for map notifies against any root windows too if a
        * compositor is enabled: */
-      if (display->compositor && window == NULL
-	  && meta_display_screen_for_root (display, event->xmap.event))
+      if (window == NULL && meta_display_screen_for_root (display, event->xmap.event))
         {
           window = meta_window_new (display, event->xmap.window,
                                     FALSE);
@@ -2711,7 +2720,7 @@ event_callback (XEvent   *event,
       break;
     }
 
-  if (display->compositor && !bypass_compositor)
+  if (!bypass_compositor)
     {
       if (meta_compositor_process_event (display->compositor,
                                          event,
@@ -3852,7 +3861,16 @@ meta_display_end_grab_op (MetaDisplay *display,
         meta_screen_ungrab_all_keys (display->grab_screen, timestamp);
     }
 
-  
+  if (display->grab_window &&
+      display->grab_window->resizing_tile_type != META_WINDOW_TILE_TYPE_NONE) {
+    display->grab_window->snap_queued = display->grab_window->resizing_tile_type == META_WINDOW_TILE_TYPE_SNAPPED;
+    display->grab_window->tile_mode = display->grab_window->resize_tile_mode;
+    display->grab_window->custom_snap_size = TRUE;
+    meta_window_real_tile (display->grab_window, TRUE);
+  }
+
+  meta_screen_hide_hud_and_preview (display->grab_screen);
+
   display->grab_window = NULL;
   display->grab_screen = NULL;
   display->grab_xwindow = None;
@@ -4887,6 +4905,45 @@ meta_resize_gravity_from_grab_op (MetaGrabOp op)
   return gravity;
 }
 
+LOCAL_SYMBOL int
+meta_resize_gravity_from_tile_mode (MetaTileMode mode)
+{
+  int gravity;
+  
+  gravity = -1;
+  switch (mode)
+    {
+      case META_TILE_LEFT:
+        gravity = WestGravity;
+        break;
+      case META_TILE_RIGHT:
+        gravity = EastGravity;
+        break;
+      case META_TILE_TOP:
+        gravity = NorthGravity;
+        break;
+      case META_TILE_BOTTOM:
+        gravity = SouthGravity;
+        break;
+      case META_TILE_ULC:
+        gravity = NorthWestGravity;
+        break;
+      case META_TILE_LLC:
+        gravity = SouthWestGravity;
+        break;
+      case META_TILE_URC:
+        gravity = NorthEastGravity;
+        break;
+      case META_TILE_LRC:
+        gravity = SouthEastGravity;
+        break;
+      default:
+        break;
+    }
+
+  return gravity;
+}
+
 static MetaScreen*
 find_screen_for_selection (MetaDisplay *display,
                            Window       owner,
@@ -5258,8 +5315,6 @@ static void
 prefs_changed_callback (MetaPreference pref,
                         void          *data)
 {
-  MetaDisplay *display = data;
-  
   /* It may not be obvious why we regrab on focus mode
    * change; it's because we handle focus clicks a
    * bit differently for the different focus modes.
@@ -5308,10 +5363,6 @@ prefs_changed_callback (MetaPreference pref,
         }
 
       g_slist_free (windows);
-    }
-  else if (pref == META_PREF_AUDIBLE_BELL)
-    {
-      meta_bell_set_audible (display, meta_prefs_bell_is_audible ());
     }
 }
 

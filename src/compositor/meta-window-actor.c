@@ -104,7 +104,6 @@ struct _MetaWindowActorPrivate
   GList            *frames;
 
   guint		    visible                : 1;
-  guint		    mapped                 : 1;
   guint		    argb32                 : 1;
   guint		    disposed               : 1;
   guint             redecorating           : 1;
@@ -1018,7 +1017,7 @@ meta_window_actor_damage_all (MetaWindowActor *self)
 
   texture = meta_shaped_texture_get_texture (META_SHAPED_TEXTURE (priv->actor));
 
-  if (!priv->mapped || priv->needs_pixmap)
+  if (priv->needs_pixmap)
     return;
 
   meta_shaped_texture_update_area (META_SHAPED_TEXTURE (priv->actor),
@@ -1087,7 +1086,7 @@ meta_window_actor_queue_frame_drawn (MetaWindowActor *self,
        * send a _NET_WM_FRAME_DRAWN. We do a 1-pixel redraw to get
        * consistent timing with non-empty frames.
        */
-      if (priv->mapped && !priv->needs_pixmap)
+      if (!priv->needs_pixmap)
         {
           const cairo_rectangle_int_t clip = { 0, 0, 1, 1 };
           clutter_actor_queue_redraw_with_clip (priv->actor, &clip);
@@ -1119,9 +1118,6 @@ meta_window_actor_queue_create_pixmap (MetaWindowActor *self)
   MetaWindowActorPrivate *priv = self->priv;
 
   priv->needs_pixmap = TRUE;
-
-  if (!priv->mapped)
-    return;
 
   if (is_frozen (self))
     return;
@@ -1219,9 +1215,6 @@ meta_window_actor_after_effects (MetaWindowActor *self)
 
   meta_window_actor_sync_visibility (self);
   meta_window_actor_sync_actor_geometry (self, FALSE);
-
-  if (!meta_window_is_mapped (priv->window))
-    meta_window_actor_detach (self);
 
   if (priv->needs_pixmap)
     clutter_actor_queue_redraw (priv->actor);
@@ -1403,7 +1396,6 @@ LOCAL_SYMBOL void
 meta_window_actor_destroy (MetaWindowActor *self)
 {
   MetaWindow	      *window;
-  MetaCompScreen      *info;
   MetaWindowActorPrivate *priv;
   MetaWindowType window_type;
 
@@ -1412,13 +1404,6 @@ meta_window_actor_destroy (MetaWindowActor *self)
   window = priv->window;
   window_type = meta_window_get_window_type (window);
   meta_window_set_compositor_private (window, NULL);
-
-  /*
-   * We remove the window from internal lookup hashes and thus any other
-   * unmap events etc fail
-   */
-  info = meta_screen_get_compositor_data (priv->screen);
-  info->windows = g_list_remove (info->windows, (gconstpointer) self);
 
   if (window_type == META_WINDOW_DROPDOWN_MENU ||
       window_type == META_WINDOW_POPUP_MENU ||
@@ -1672,8 +1657,7 @@ meta_window_actor_new (MetaWindow *window)
   MetaWindowActorPrivate *priv;
   MetaFrame		 *frame;
   Window		  top_window;
-  MetaRectangle rectWorkArea[1];
-  MetaRectangle *rectWindow;
+  ClutterActor           *window_group;
 
   frame = meta_window_get_frame (window);
   if (frame)
@@ -1694,9 +1678,7 @@ meta_window_actor_new (MetaWindow *window)
   priv->last_width = -1;
   priv->last_height = -1;
 
-  priv->mapped = meta_window_toplevel_is_mapped (priv->window);
-  if (priv->mapped)
-    meta_window_actor_queue_create_pixmap (self);
+  meta_window_actor_queue_create_pixmap (self);
 
   meta_window_actor_set_updates_frozen (self,
                                         meta_window_updates_are_frozen (priv->window));
@@ -1712,34 +1694,16 @@ meta_window_actor_new (MetaWindow *window)
   /* Hang our compositor window state off the MetaWindow for fast retrieval */
   meta_window_set_compositor_private (window, G_OBJECT (self));
   
-  if (window->type == META_WINDOW_DROPDOWN_MENU ||
-      window->type == META_WINDOW_POPUP_MENU ||
-      window->type == META_WINDOW_COMBO) {
-    clutter_container_add_actor (CLUTTER_CONTAINER (info->top_window_group),
-			       CLUTTER_ACTOR (self));
-  }
-  else if (window->type == META_WINDOW_TOOLTIP) {
-    meta_window_get_work_area_all_monitors(window, rectWorkArea);
-    rectWindow = meta_window_get_rect(window);
-    // move tooltip out of top panel if necessary
-    if (rectWindow->y < rectWorkArea->y) {
-      meta_window_move(window, FALSE, rectWindow->x, rectWorkArea->y);
-    }
-    rectWindow = meta_window_get_rect(window);
-    // move tooltip out of bottom panel if necessary
-    if ((rectWindow->y + rectWindow->height) > (rectWorkArea->y  + rectWorkArea->height)) {
-      meta_window_move(window, FALSE, rectWindow->x, rectWorkArea->y + rectWorkArea->height - rectWindow->height);
-    }
-    clutter_container_add_actor (CLUTTER_CONTAINER (info->top_window_group),
-		       CLUTTER_ACTOR (self));
-  }
-  else if (window->type == META_WINDOW_DESKTOP) {
-    clutter_container_add_actor (CLUTTER_CONTAINER (info->bottom_window_group),
-			       CLUTTER_ACTOR (self));
-  }else{
-    clutter_container_add_actor (CLUTTER_CONTAINER (info->window_group),
-			       CLUTTER_ACTOR (self));
-  }
+  if (window->layer == META_LAYER_OVERRIDE_REDIRECT)
+    window_group = info->top_window_group;
+  else if (window->type == META_WINDOW_DESKTOP)
+    window_group = info->bottom_window_group;
+  else
+    window_group = info->window_group;
+
+  clutter_container_add_actor (CLUTTER_CONTAINER (window_group),
+                               CLUTTER_ACTOR (self));
+  
   clutter_actor_hide (CLUTTER_ACTOR (self));
 
   /* Initial position in the stack is arbitrary; stacking will be synced
@@ -1748,34 +1712,6 @@ meta_window_actor_new (MetaWindow *window)
   info->windows = g_list_append (info->windows, self);
 
   return self;
-}
-
-LOCAL_SYMBOL void
-meta_window_actor_mapped (MetaWindowActor *self)
-{
-  MetaWindowActorPrivate *priv = self->priv;
-
-  g_return_if_fail (!priv->mapped);
-
-  priv->mapped = TRUE;
-
-  meta_window_actor_queue_create_pixmap (self);
-}
-
-LOCAL_SYMBOL void
-meta_window_actor_unmapped (MetaWindowActor *self)
-{
-  MetaWindowActorPrivate *priv = self->priv;
-
-  g_return_if_fail (priv->mapped);
-
-  priv->mapped = FALSE;
-
-  if (meta_window_actor_effect_in_progress (self))
-    return;
-
-  meta_window_actor_detach (self);
-  priv->needs_pixmap = FALSE;
 }
 
 static void
@@ -2020,9 +1956,6 @@ check_needs_pixmap (MetaWindowActor *self)
   if (!priv->needs_pixmap)
     return;
 
-  if (!priv->mapped)
-    return;
-
   if (xwindow == meta_screen_get_xroot (screen) ||
       xwindow == clutter_x11_get_stage_window (CLUTTER_STAGE (info->stage)))
     return;
@@ -2105,9 +2038,6 @@ check_needs_shadow (MetaWindowActor *self)
   gboolean recompute_shadow;
   gboolean should_have_shadow;
   gboolean appears_focused;
-
-  if (!priv->mapped)
-    return;
 
   /* Calling meta_window_actor_has_shadow() here at every pre-paint is cheap
    * and avoids the need to explicitly handle window type changes, which
@@ -2219,7 +2149,7 @@ meta_window_actor_process_damage (MetaWindowActor    *self,
       return;
     }
 
-  if (!priv->mapped || priv->needs_pixmap)
+  if (priv->needs_pixmap)
     return;
 
   meta_shaped_texture_update_area (META_SHAPED_TEXTURE (priv->actor),
