@@ -60,14 +60,13 @@ typedef enum
   META_PREF_VISUAL_BELL,
   META_PREF_AUDIBLE_BELL,
   META_PREF_VISUAL_BELL_TYPE,
-  META_PREF_GNOME_ACCESSIBILITY,
   META_PREF_GNOME_ANIMATIONS,
   META_PREF_CURSOR_THEME,
   META_PREF_CURSOR_SIZE,
   META_PREF_RESIZE_WITH_RIGHT_BUTTON,
   META_PREF_EDGE_TILING,
   META_PREF_FORCE_FULLSCREEN,
-  META_PREF_LIVE_HIDDEN_WINDOWS,
+  META_PREF_EDGE_RESISTANCE_WINDOW,
   META_PREF_WORKSPACES_ONLY_ON_PRIMARY,
   META_PREF_DRAGGABLE_BORDER_WIDTH,
   META_PREF_TILE_HUD_THRESHOLD,
@@ -120,6 +119,7 @@ int                         meta_prefs_get_auto_raise_delay   (void);
 gboolean                    meta_prefs_get_gnome_accessibility (void);
 gboolean                    meta_prefs_get_gnome_animations   (void);
 gboolean                    meta_prefs_get_edge_tiling        (void);
+gboolean                    meta_prefs_get_edge_resistance_window (void);
 
 const char*                 meta_prefs_get_screenshot_command (void);
 
@@ -154,9 +154,6 @@ gboolean    meta_prefs_get_force_fullscreen  (void);
 void meta_prefs_set_compositing_manager (gboolean whether);
 
 void meta_prefs_set_force_fullscreen (gboolean whether);
-
-gboolean meta_prefs_get_live_hidden_windows (void);
-void     meta_prefs_set_live_hidden_windows (gboolean whether);
 
 gboolean meta_prefs_get_workspaces_only_on_primary (void);
 

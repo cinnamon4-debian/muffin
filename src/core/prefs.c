@@ -54,14 +54,12 @@
 #define KEY_WORKSPACE_CYCLE "workspace-cycle"
 
 /* Keys from "foreign" schemas */
-#define KEY_GNOME_ACCESSIBILITY "toolkit-accessibility"
 #define KEY_GNOME_ANIMATIONS "enable-animations"
 #define KEY_GNOME_CURSOR_THEME "cursor-theme"
 #define KEY_GNOME_CURSOR_SIZE "cursor-size"
 
 #define KEY_MIN_WINDOW_OPACITY "min-window-opacity"
 #define KEY_WS_NAMES_GNOME "workspace-names"
-#define KEY_LIVE_HIDDEN_WINDOWS "live-hidden-windows"
 #define KEY_WORKSPACES_ONLY_ON_PRIMARY "workspaces-only-on-primary"
 
 #define KEY_MOUSEWHEEL_ZOOM_ENABLED "screen-magnifier-enabled"
@@ -102,9 +100,6 @@ static gboolean application_based = FALSE;
 static gboolean disable_workarounds = FALSE;
 static gboolean auto_raise = FALSE;
 static gboolean auto_raise_delay = 500;
-static gboolean bell_is_visible = FALSE;
-static gboolean bell_is_audible = TRUE;
-static gboolean gnome_accessibility = FALSE;
 static gboolean gnome_animations = TRUE;
 static char *cursor_theme = NULL;
 static int   cursor_size = 24;
@@ -115,16 +110,15 @@ static int ui_scale = 1;
 static int min_window_opacity = 0;
 static gboolean resize_with_right_button = FALSE;
 static gboolean edge_tiling = FALSE;
+static gboolean edge_resistance_window = TRUE;
 static gboolean force_fullscreen = TRUE;
 static unsigned int snap_modifier[2];
 
-static CDesktopVisualBellType visual_bell_type = C_DESKTOP_VISUAL_BELL_FULLSCREEN_FLASH;
 static MetaButtonLayout button_layout;
 
 /* NULL-terminated array */
 static char **workspace_names = NULL;
 
-static gboolean live_hidden_windows = FALSE;
 static gboolean workspaces_only_on_primary = FALSE;
 
 static gboolean legacy_snap = FALSE;
@@ -254,13 +248,6 @@ static MetaEnumPreference preferences_enum[] =
       &focus_mode,
     },
     {
-      { "visual-bell-type",
-        SCHEMA_GENERAL,
-        META_PREF_VISUAL_BELL_TYPE,
-      },
-      &visual_bell_type,
-    },
-    {
       { "action-double-click-titlebar",
         SCHEMA_GENERAL,
         META_PREF_ACTION_DOUBLE_CLICK_TITLEBAR,
@@ -364,27 +351,6 @@ static MetaBoolPreference preferences_bool[] =
       &auto_raise,
     },
     {
-      { "visual-bell",
-        SCHEMA_GENERAL,
-        META_PREF_VISUAL_BELL,
-      },
-      &bell_is_visible, /* FIXME: change the name: it's confusing */
-    },
-    {
-      { "audible-bell",
-        SCHEMA_GENERAL,
-        META_PREF_AUDIBLE_BELL,
-      },
-      &bell_is_audible, /* FIXME: change the name: it's confusing */
-    },
-    {
-      { KEY_GNOME_ACCESSIBILITY,
-        SCHEMA_INTERFACE,
-        META_PREF_GNOME_ACCESSIBILITY,
-      },
-      &gnome_accessibility,
-    },
-    {
       { KEY_MOUSEWHEEL_ZOOM_ENABLED,
         SCHEMA_A11Y_APPLICATIONS,
         META_PREF_MOUSE_ZOOM_ENABLED,
@@ -413,11 +379,11 @@ static MetaBoolPreference preferences_bool[] =
       &edge_tiling,
     },
     {
-      { KEY_LIVE_HIDDEN_WINDOWS,
+      { "edge-resistance-window",
         SCHEMA_MUFFIN,
-        META_PREF_LIVE_HIDDEN_WINDOWS,
+        META_PREF_EDGE_RESISTANCE_WINDOW,
       },
-      &live_hidden_windows,
+      &edge_resistance_window,
     },
     {
       { "workspaces-only-on-primary",
@@ -944,8 +910,6 @@ meta_prefs_init (void)
 
   /* Individual keys we watch outside of our schemas */
   settings = g_settings_new (SCHEMA_INTERFACE);
-  g_signal_connect (settings, "changed::" KEY_GNOME_ACCESSIBILITY,
-                    G_CALLBACK (settings_changed), NULL);
   g_signal_connect (settings, "changed::" KEY_GNOME_ANIMATIONS,
                     G_CALLBACK (settings_changed), NULL);
   g_signal_connect (settings, "changed::" KEY_GNOME_CURSOR_THEME,
@@ -1835,18 +1799,6 @@ meta_preference_to_string (MetaPreference pref)
     case META_PREF_WORKSPACE_NAMES:
       return "WORKSPACE_NAMES";
 
-    case META_PREF_VISUAL_BELL:
-      return "VISUAL_BELL";
-
-    case META_PREF_AUDIBLE_BELL:
-      return "AUDIBLE_BELL";
-
-    case META_PREF_VISUAL_BELL_TYPE:
-      return "VISUAL_BELL_TYPE";
-
-    case META_PREF_GNOME_ACCESSIBILITY:
-      return "GNOME_ACCESSIBILTY";
-
     case META_PREF_GNOME_ANIMATIONS:
       return "GNOME_ANIMATIONS";
 
@@ -1862,17 +1814,26 @@ meta_preference_to_string (MetaPreference pref)
     case META_PREF_EDGE_TILING:
       return "EDGE_TILING";
 
+    case META_PREF_EDGE_RESISTANCE_WINDOW:
+      return "EDGE_RESISTANCE_WINDOW";
+
     case META_PREF_FORCE_FULLSCREEN:
       return "FORCE_FULLSCREEN";
-
-    case META_PREF_LIVE_HIDDEN_WINDOWS:
-      return "LIVE_HIDDEN_WINDOWS";
 
     case META_PREF_WORKSPACES_ONLY_ON_PRIMARY:
       return "WORKSPACES_ONLY_ON_PRIMARY";
 
     case META_PREF_WORKSPACE_CYCLE:
       return "WORKSPACE_CYCLE";
+
+    case META_PREF_VISUAL_BELL:
+      return "VISUAL_BELL";
+
+    case META_PREF_AUDIBLE_BELL:
+      return "AUDIBLE_BELL";
+
+    case META_PREF_VISUAL_BELL_TYPE:
+      return "VISUAL_BELL_TYPE";
 
     case META_PREF_DRAGGABLE_BORDER_WIDTH:
       return "DRAGGABLE_BORDER_WIDTH";
@@ -1906,7 +1867,6 @@ meta_preference_to_string (MetaPreference pref)
 
     case META_PREF_MIN_WIN_OPACITY:
       return "MIN_WIN_OPACITY";
-
     }
 
   return "(unknown)";
@@ -2156,24 +2116,6 @@ meta_prefs_get_button_layout (MetaButtonLayout *button_layout_p)
   *button_layout_p = button_layout;
 }
 
-gboolean
-meta_prefs_get_visual_bell (void)
-{
-  return bell_is_visible;
-}
-
-gboolean
-meta_prefs_bell_is_audible (void)
-{
-  return bell_is_audible;
-}
-
-CDesktopVisualBellType
-meta_prefs_get_visual_bell_type (void)
-{
-  return visual_bell_type;
-}
-
 LOCAL_SYMBOL gboolean
 meta_prefs_add_keybinding (const char           *name,
                            const char           *schema,
@@ -2360,12 +2302,6 @@ meta_prefs_get_auto_raise_delay (void)
 }
 
 gboolean
-meta_prefs_get_gnome_accessibility ()
-{
-  return gnome_accessibility;
-}
-
-gboolean
 meta_prefs_get_gnome_animations ()
 {
   return gnome_animations;
@@ -2375,6 +2311,12 @@ gboolean
 meta_prefs_get_edge_tiling ()
 {
   return edge_tiling;
+}
+
+gboolean
+meta_prefs_get_edge_resistance_window ()
+{
+  return edge_resistance_window;
 }
 
 MetaKeyBindingAction
@@ -2439,27 +2381,6 @@ gboolean
 meta_prefs_get_force_fullscreen (void)
 {
   return force_fullscreen;
-}
-
-gboolean
-meta_prefs_get_live_hidden_windows (void)
-{
-#if 0
-  return live_hidden_windows;
-#else
-  return TRUE;
-#endif
-}
-
-void
-meta_prefs_set_live_hidden_windows (gboolean whether)
-{
-  MetaBasePreference *pref = NULL;
-
-  find_pref (preferences_bool, sizeof(MetaBoolPreference),
-             KEY_LIVE_HIDDEN_WINDOWS, &pref);
-  g_settings_set_boolean (SETTINGS (pref->schema), KEY_LIVE_HIDDEN_WINDOWS,
-                          whether);
 }
 
 gboolean
