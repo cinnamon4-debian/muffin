@@ -3474,7 +3474,7 @@ meta_window_maximize_internal (MetaWindow        *window,
     meta_window_save_rect (window);
 
   meta_window_set_tile_type (window, META_WINDOW_TILE_TYPE_NONE);
-  window->tile_mode = META_TILE_MAXIMIZE;
+  window->tile_mode = META_TILE_NONE;
   notify_tile_type (window);
   normalize_tile_state (window);
 
@@ -3733,8 +3733,8 @@ meta_window_real_tile (MetaWindow *window, gboolean force)
      meta_window_save_rect (window);
   }
 
-  window->maximized_horizontally = FALSE || window->tile_mode == META_TILE_MAXIMIZE;
-  window->maximized_vertically = FALSE || window->tile_mode == META_TILE_MAXIMIZE;
+  window->maximized_horizontally = FALSE;
+  window->maximized_vertically = FALSE;
 
   if (window->tile_mode != META_TILE_NONE) {
       if (window->snap_queued || window->resizing_tile_type == META_WINDOW_TILE_TYPE_SNAPPED) {
@@ -9944,6 +9944,7 @@ update_tile_mode (MetaWindow *window)
       case META_TILE_LRC:
       case META_TILE_TOP:
       case META_TILE_BOTTOM:
+      case META_TILE_MAXIMIZE:
           if (!META_WINDOW_TILED_OR_SNAPPED (window))
               window->tile_mode = META_TILE_NONE;
           break;
@@ -10096,18 +10097,19 @@ meta_window_handle_mouse_grab_op_event (MetaWindow *window,
                                event->xbutton.x_root,
                                event->xbutton.y_root,
                                TRUE);
-
-              /* If a tiled window has been dragged free with a
-               * mouse resize without snapping back to the tiled
-               * state, it will end up with an inconsistent tile
-               * mode on mouse release; cleaning the mode earlier
-               * would break the ability to snap back to the tiled
-               * state, so we wait until mouse release.
-               */
-              if (window->tile_type == META_WINDOW_TILE_TYPE_NONE)
-                update_tile_mode (window);
             }
+
+          /* If a tiled window has been dragged free with a
+           * mouse resize without snapping back to the tiled
+           * state, it will end up with an inconsistent tile
+           * mode on mouse release; cleaning the mode earlier
+           * would break the ability to snap back to the tiled
+           * state, so we wait until mouse release.
+           */
+          if (window->tile_type == META_WINDOW_TILE_TYPE_NONE)
+            update_tile_mode (window);
         }
+
       window->maybe_retile_maximize = FALSE;
       meta_display_end_grab_op (window->display, event->xbutton.time);
       break;
