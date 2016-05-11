@@ -128,23 +128,6 @@ Description: GObject introspection data for Muffin
  This package contains the GObject introspection data which may be
  used to generate dynamic bindings.
 
-Package: muffin-dbg
-Section: debug
-Priority: extra
-Architecture: any
-Depends: libmuffin0 (= ${binary:Version}),
-         muffin (= ${binary:Version}),
-         ${misc:Depends}
-Description: lightweight window and compositing manager (debugging symbols)
- Muffin is a small window manager performing compositing as well based on
- GTK+ and Clutter and used in desktop environment such as Cinnamon.
- .
- It is fairly extensible by the mean of plugins, providing new or customized
- visual effects as well as a flexibility in the behavior of the window
- manager.
- .
- This package contains the debugging symbols.
-
 Package: muffin-doc
 Section: doc
 Architecture: all
