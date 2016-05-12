@@ -70,6 +70,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends: muffin-common (= ${source:Version}),
          ${misc:Depends},
          ${shlibs:Depends}
+Breaks: cinnamon (<= 3)
 Description: lightweight window and compositing manager (shared library)
  Muffin is a small window manager performing compositing as well based on
  GTK+ and Clutter and used in desktop environment such as Cinnamon.
