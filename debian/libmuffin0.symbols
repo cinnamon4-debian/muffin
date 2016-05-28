@@ -330,7 +330,6 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_activate@Base 1.1.0
  meta_window_activate_with_workspace@Base 1.1.0
  meta_window_actor_frame_complete@Base 2.8.1
- meta_window_actor_get_description@Base 1.1.0
  meta_window_actor_get_meta_window@Base 1.1.0
  meta_window_actor_get_texture@Base 1.1.0
  meta_window_actor_get_type@Base 1.1.0

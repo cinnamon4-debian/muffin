@@ -1,6 +1,8 @@
 muffin (3.0.4-1) unstable; urgency=medium
 
   * New upstream release.
+  * Remove meta_window_actor_get_description from symbols file.  It was an
+    internal function that was unused and got dropped.
 
  -- Margarita Manterola <marga@debian.org>  Sat, 28 May 2016 15:46:26 +0200
 
