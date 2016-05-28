@@ -66,9 +66,6 @@ struct _MetaWindowActorPrivate
   Damage            damage;
 
   guint8            opacity;
-  guint8            shadow_opacity;
-
-  gchar *           desc;
 
   /* If the window is shaped, a region that matches the shape */
   cairo_region_t   *shape_region;
@@ -127,8 +124,6 @@ struct _MetaWindowActorPrivate
 
   guint             no_shadow              : 1;
 
-  guint             no_more_x_calls        : 1;
-
   guint             unredirected           : 1;
 
   /* This is used to detect fullscreen windows that need to be unredirected */
@@ -181,10 +176,6 @@ static gboolean meta_window_actor_get_paint_volume (ClutterActor       *actor,
 
 static void     meta_window_actor_detach     (MetaWindowActor *self);
 static gboolean meta_window_actor_has_shadow (MetaWindowActor *self);
-
-static void meta_window_actor_clear_shape_region    (MetaWindowActor *self);
-static void meta_window_actor_clear_bounding_region (MetaWindowActor *self);
-static void meta_window_actor_clear_shadow_clip     (MetaWindowActor *self);
 
 static void meta_window_actor_handle_updates (MetaWindowActor *self);
 
@@ -366,9 +357,6 @@ window_decorated_notify (MetaWindow *mw,
       priv->damage = None;
     }
 
-  g_free (priv->desc);
-  priv->desc = NULL;
-
   priv->xwindow = new_xwindow;
 
   /*
@@ -472,33 +460,14 @@ meta_window_actor_dispose (GObject *object)
 
   meta_window_actor_detach (self);
 
-  meta_window_actor_clear_shape_region (self);
-  meta_window_actor_clear_bounding_region (self);
-  meta_window_actor_clear_shadow_clip (self);
+  g_clear_pointer (&priv->shape_region, cairo_region_destroy);
+  g_clear_pointer (&priv->bounding_region, cairo_region_destroy);
+  g_clear_pointer (&priv->shadow_clip, cairo_region_destroy);
 
-  if (priv->shadow_class != NULL)
-    {
-      g_free (priv->shadow_class);
-      priv->shadow_class = NULL;
-    }
-
-  if (priv->focused_shadow != NULL)
-    {
-      meta_shadow_unref (priv->focused_shadow);
-      priv->focused_shadow = NULL;
-    }
-
-  if (priv->unfocused_shadow != NULL)
-    {
-      meta_shadow_unref (priv->unfocused_shadow);
-      priv->unfocused_shadow = NULL;
-    }
-
-  if (priv->shadow_shape != NULL)
-    {
-      meta_window_shape_unref (priv->shadow_shape);
-      priv->shadow_shape = NULL;
-    }
+  g_clear_pointer (&priv->shadow_class, g_free);
+  g_clear_pointer (&priv->focused_shadow, meta_shadow_unref);
+  g_clear_pointer (&priv->unfocused_shadow, meta_shadow_unref);
+  g_clear_pointer (&priv->shadow_shape, meta_window_shape_unref);
 
   if (priv->damage != None)
     {
@@ -511,17 +480,12 @@ meta_window_actor_dispose (GObject *object)
 
   info->windows = g_list_remove (info->windows, (gconstpointer) self);
 
-  if (priv->window)
-    {
-      g_object_unref (priv->window);
-      priv->window = NULL;
-    }
+  g_clear_object (&priv->window);
 
   /*
    * Release the extra reference we took on the actor.
    */
-  g_object_unref (priv->actor);
-  priv->actor = NULL;
+  g_clear_object (&priv->actor);
 
   G_OBJECT_CLASS (meta_window_actor_parent_class)->dispose (object);
 }
@@ -531,9 +495,7 @@ meta_window_actor_finalize (GObject *object)
 {
   MetaWindowActor        *self = META_WINDOW_ACTOR (object);
   MetaWindowActorPrivate *priv = self->priv;
-
-  g_free (priv->desc);
-
+  g_list_free_full (priv->frames, (GDestroyNotify) frame_data_free);
   G_OBJECT_CLASS (meta_window_actor_parent_class)->finalize (object);
 }
 
@@ -932,25 +894,6 @@ gboolean
 meta_window_actor_is_override_redirect (MetaWindowActor *self)
 {
   return meta_window_is_override_redirect (self->priv->window);
-}
-
-const char *meta_window_actor_get_description (MetaWindowActor *self)
-{
-  /*
-   * For windows managed by the WM, we just defer to the WM for the window
-   * description. For override-redirect windows, we create the description
-   * ourselves, but only on demand.
-   */
-  if (self->priv->window)
-    return meta_window_get_description (self->priv->window);
-
-  if (G_UNLIKELY (self->priv->desc == NULL))
-    {
-      self->priv->desc = g_strdup_printf ("Override Redirect (0x%x)",
-                                         (guint) self->priv->xwindow);
-    }
-
-  return self->priv->desc;
 }
 
 /**
@@ -1422,14 +1365,6 @@ meta_window_actor_destroy (MetaWindowActor *self)
 
   priv->needs_destroy = TRUE;
 
-  /*
-   * Once the window destruction is initiated we can no longer perform any
-   * furter X-based operations. For example, if we have a Map effect running,
-   * we cannot query the window geometry once the effect completes. So, flag
-   * this.
-   */
-  priv->no_more_x_calls = TRUE;
-
   if (!meta_window_actor_effect_in_progress (self))
     clutter_actor_destroy (CLUTTER_ACTOR (self));
 }
@@ -1717,42 +1652,6 @@ meta_window_actor_new (MetaWindow *window)
 }
 
 static void
-meta_window_actor_clear_shape_region (MetaWindowActor *self)
-{
-  MetaWindowActorPrivate *priv = self->priv;
-
-  if (priv->shape_region)
-    {
-      cairo_region_destroy (priv->shape_region);
-      priv->shape_region = NULL;
-    }
-}
-
-static void
-meta_window_actor_clear_bounding_region (MetaWindowActor *self)
-{
-  MetaWindowActorPrivate *priv = self->priv;
-
-  if (priv->bounding_region)
-    {
-      cairo_region_destroy (priv->bounding_region);
-      priv->bounding_region = NULL;
-    }
-}
-
-static void
-meta_window_actor_clear_shadow_clip (MetaWindowActor *self)
-{
-  MetaWindowActorPrivate *priv = self->priv;
-
-  if (priv->shadow_clip)
-    {
-      cairo_region_destroy (priv->shadow_clip);
-      priv->shadow_clip = NULL;
-    }
-}
-
-static void
 meta_window_actor_update_bounding_region_and_borders (MetaWindowActor *self,
                                                       int              width,
                                                       int              height)
@@ -1792,7 +1691,7 @@ meta_window_actor_update_bounding_region_and_borders (MetaWindowActor *self,
 
   priv->last_borders = borders;
 
-  meta_window_actor_clear_bounding_region (self);
+  g_clear_pointer (&priv->bounding_region, cairo_region_destroy);
 
   priv->bounding_region = cairo_region_create_rectangle (&bounding_rectangle);
 
@@ -1807,7 +1706,7 @@ meta_window_actor_update_shape_region (MetaWindowActor *self,
 {
   MetaWindowActorPrivate *priv = self->priv;
 
-  meta_window_actor_clear_shape_region (self);
+  g_clear_pointer (&priv->shape_region, cairo_region_destroy);
 
   /* region must be non-null */
   priv->shape_region = region;
@@ -1916,7 +1815,7 @@ meta_window_actor_set_visible_region_beneath (MetaWindowActor *self,
 
   if (appears_focused ? priv->focused_shadow : priv->unfocused_shadow)
     {
-      meta_window_actor_clear_shadow_clip (self);
+      g_clear_pointer (&priv->shadow_clip, cairo_region_destroy);
       priv->shadow_clip = cairo_region_copy (beneath_region);
 
       if (clip_shadow_under_window (self))
@@ -1941,7 +1840,7 @@ meta_window_actor_reset_visible_regions (MetaWindowActor *self)
 
   meta_shaped_texture_set_clip_region (META_SHAPED_TEXTURE (priv->actor),
                                        NULL);
-  meta_window_actor_clear_shadow_clip (self);
+  g_clear_pointer (&priv->shadow_clip, cairo_region_destroy);
 }
 
 static void
@@ -2306,7 +2205,7 @@ check_needs_reshape (MetaWindowActor *self)
     return;
 
   meta_shaped_texture_set_shape_region (META_SHAPED_TEXTURE (priv->actor), NULL);
-  meta_window_actor_clear_shape_region (self);
+  g_clear_pointer (&priv->shape_region, cairo_region_destroy);;
 
   if (priv->shadow_shape != NULL)
     {
@@ -2341,16 +2240,8 @@ check_needs_reshape (MetaWindowActor *self)
       client_area.width = priv->window->rect.width;
       client_area.height = priv->window->rect.height;
 
-      if (priv->window->frame)
-        {
-          client_area.x = borders.total.left;
-          client_area.y = borders.total.top;
-        }
-      else
-        {
-          client_area.x = 0;
-          client_area.y = 0;
-        }
+      client_area.x = borders.total.left;
+      client_area.y = borders.total.top;
 
       /* Punch out client area. */
       cairo_region_subtract_rectangle (region, &client_area);

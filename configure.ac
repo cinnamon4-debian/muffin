@@ -2,7 +2,7 @@ AC_PREREQ(2.50)
 
 m4_define([muffin_major_version], [3])
 m4_define([muffin_minor_version], [0])
-m4_define([muffin_micro_version], [3])
+m4_define([muffin_micro_version], [4])
 
 m4_define([muffin_version],
           [muffin_major_version.muffin_minor_version.muffin_micro_version])
@@ -412,9 +412,6 @@ AC_ARG_ENABLE(debug,
 if test "x$enable_debug" = "xyes"; then
 	CFLAGS="$CFLAGS -g -O"
 fi
-
-# For fix-meta-rectangle.py
-AM_PATH_PYTHON([2.5])
 
 # Use gnome-doc-utils:
 GNOME_DOC_INIT([0.8.0])
