@@ -5,6 +5,8 @@ muffin (3.0.5-1~) UNRELEASED; urgency=medium
 
   [ Maximiliano Curia ]
   * New upstream release (3.0.5).
+  * Add new patch: Migrate-away-from-gnome-common-deprecated-vars-and-
+    macros.patch (Closes: 829819)
 
  -- Maximiliano Curia <maxy@debian.org>  Mon, 18 Jul 2016 13:22:39 +0200
 
