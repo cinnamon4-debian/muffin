@@ -6,6 +6,7 @@ Uploaders: Maximiliano Curia <maxy@debian.org>,
            Margarita Manterola <marga@debian.org>,
            Fabio Fantoni <fantonifabio@tiscali.it>
 Build-Depends: autoconf-archive,
+               automake,
                debhelper (>= 9),
                dh-acc,
                dh-autoreconf,
