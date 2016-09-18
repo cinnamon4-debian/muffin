@@ -1,1 +1,3 @@
 Migrate-away-from-gnome-common-deprecated-vars-and-macros.patch
+Fixed-build.patch
+Make-AX_-macros-optional.patch

@@ -1,0 +1,33 @@
+From: Maximiliano Curia <maxy@gnuservers.com.ar>
+Date: Sun, 18 Sep 2016 15:18:39 +0200
+Subject: Make AX_ macros optional
+
+Not all AX_ macros aren't available in previous versions of
+autoconf-archive, making them optional allows backports.
+---
+ configure.ac | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/configure.ac b/configure.ac
+index ef46bc7..bb7995a 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -11,7 +11,7 @@ m4_define([muffin_plugin_api_version], [3])
+ 
+ AC_INIT([muffin], [muffin_version],
+         [https://github.com/linuxmint/muffin/issues])
+-AX_IS_RELEASE([always])
++m4_ifdef([AX_IS_RELEASE], [AX_IS_RELEASE([always])])
+ 
+ AC_CONFIG_SRCDIR(src/core/display.c)
+ AC_CONFIG_HEADERS(config.h)
+@@ -431,7 +431,8 @@ AC_CHECK_DECL([GL_EXT_x11_sync_object],
+               [AC_MSG_ERROR([GL_EXT_x11_sync_object definition not found, please update your GL headers])],
+               [#include <GL/glx.h>])
+ 
+-AX_COMPILER_FLAGS([WARN_CFLAGS],[WARN_LDFLAGS])
++m4_ifdef([AX_COMPILER_FLAGS],
++         [AX_COMPILER_FLAGS([WARN_CFLAGS],[WARN_LDFLAGS])])
+ 
+ AC_CONFIG_FILES([
+ Makefile
