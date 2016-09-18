@@ -5,7 +5,8 @@ Maintainer: Debian Cinnamon Team <pkg-cinnamon-team@lists.alioth.debian.org>
 Uploaders: Maximiliano Curia <maxy@debian.org>,
            Margarita Manterola <marga@debian.org>,
            Fabio Fantoni <fantonifabio@tiscali.it>
-Build-Depends: debhelper (>= 9),
+Build-Depends: autoconf-archive,
+               debhelper (>= 9),
                dh-acc,
                dh-autoreconf,
                gnome-doc-utils (>= 0.8),
