@@ -1,3 +1,14 @@
+muffin (3.0.5-2~1.gbpfb5ce0) UNRELEASED; urgency=medium
+
+  ** SNAPSHOT build @fb5ce0307401c6648f726f52a76ac83e19d38afd **
+
+  * Add new patches: Fixed-build.patch Make-AX_-macros-optional.patch
+  * Add autoconf-archive build dep
+  * Add automake as a build dep.
+    Thanks to biebl for reporting (Closes: 837856)
+
+ -- Maximiliano Curia <maxy@gnuservers.com.ar>  Sun, 18 Sep 2016 16:38:36 +0200
+
 muffin (3.0.5-1) unstable; urgency=medium
 
   [ Margarita Manterola ]
