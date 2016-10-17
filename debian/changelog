@@ -1,11 +1,12 @@
-muffin (3.0.5-2~2) UNRELEASED; urgency=medium
+muffin (3.0.5-2) unstable; urgency=medium
 
+  [ Maximiliano Curia ]
   * Add new patches: Fixed-build.patch Make-AX_-macros-optional.patch
   * Add autoconf-archive build dep
   * Add automake as a build dep.
     Thanks to biebl for reporting (Closes: 837856)
 
- -- Maximiliano Curia <maxy@gnuservers.com.ar>  Sun, 18 Sep 2016 16:38:36 +0200
+ -- Margarita Manterola <marga@debian.org>  Mon, 17 Oct 2016 21:32:15 +0200
 
 muffin (3.0.5-1) unstable; urgency=medium
 
