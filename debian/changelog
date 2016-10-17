@@ -1,6 +1,4 @@
-muffin (3.0.5-2~1.gbpfb5ce0) UNRELEASED; urgency=medium
-
-  ** SNAPSHOT build @fb5ce0307401c6648f726f52a76ac83e19d38afd **
+muffin (3.0.5-2~2) UNRELEASED; urgency=medium
 
   * Add new patches: Fixed-build.patch Make-AX_-macros-optional.patch
   * Add autoconf-archive build dep
