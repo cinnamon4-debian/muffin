@@ -8,6 +8,7 @@ SUBDIRS=wm-tester tools compositor/plugins
 AM_CPPFLAGS=								\
 	-DCLUTTER_ENABLE_EXPERIMENTAL_API \
 	-DCOGL_ENABLE_EXPERIMENTAL_API \
+	$(WARN_CFLAGS)							\
 	$(MUFFIN_CFLAGS)						\
 	-I$(srcdir)							\
 	-I$(srcdir)/core						\
@@ -44,6 +45,8 @@ libmuffin_la_SOURCES =				\
 	compositor/cogl-utils.h			\
 	compositor/compositor.c			\
 	compositor/compositor-private.h		\
+	compositor/meta-background.c 		\
+	compositor/meta-background.h 		\
 	compositor/meta-background-actor.c	\
 	compositor/meta-background-actor-private.h	\
 	compositor/meta-module.c		\
@@ -151,7 +154,7 @@ libmuffin_la_SOURCES =				\
 	ui/preview-widget.c			\
 	$(muffin_built_sources)
 
-libmuffin_la_LDFLAGS = -no-undefined
+libmuffin_la_LDFLAGS = $(WARN_LDFLAGS) -no-undefined
 libmuffin_la_LIBADD  = $(MUFFIN_LIBS) -lclutter-glx-1.0
 
 # Headers installed for plugins; introspected information will
@@ -233,7 +236,7 @@ Meta-$(api_version).gir: libmuffin.la
 	muffin-enum-types.h			\
 	$(libmuffininclude_base_headers)	\
 	$(filter %.c,$(libmuffin_la_SOURCES))
-@META_GIR@_SCANNERFLAGS = --warn-all --warn-error
+@META_GIR@_SCANNERFLAGS = $(WARN_SCANNERFLAGS) --warn-all --warn-error
 
 endif
 
@@ -245,8 +248,8 @@ testasyncgetprop_SOURCES = core/testasyncgetprop.c core/async-getprop.c
 
 # NO-OP: work around the fact that source code tested by the programs are
 # compiled for library
-testasyncgetprop_CFLAGS = $(AM_CFLAGS) 
-testboxes_CFLAGS = $(AM_CFLAGS) 
+testasyncgetprop_CFLAGS = $(WARN_CFLAGS) $(AM_CFLAGS)
+testboxes_CFLAGS = $(WARN_CFLAGS) $(AM_CFLAGS)
 
 noinst_PROGRAMS=testboxes testgradient testasyncgetprop
 
