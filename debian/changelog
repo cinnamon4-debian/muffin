@@ -1,3 +1,9 @@
+muffin (3.2.0-1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+
+ -- Margarita Manterola <marga@debian.org>  Sat, 19 Nov 2016 12:26:44 +0100
+
 muffin (3.0.5-2) unstable; urgency=medium
 
   [ Maximiliano Curia ]
