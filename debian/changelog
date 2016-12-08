@@ -1,6 +1,5 @@
-muffin (3.2.1-1) UNRELEASED; urgency=medium
+muffin (3.2.1-1~) UNRELEASED; urgency=medium
 
-  * New upstream release.
   * New upstream release.
 
  -- Margarita Manterola <marga@debian.org>  Thu, 08 Dec 2016 13:51:53 -0300
