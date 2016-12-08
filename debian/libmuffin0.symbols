@@ -1,4 +1,4 @@
-# SymbolsHelper-Confirmed: 3.0.3 amd64
+# SymbolsHelper-Confirmed: 3.2.1 amd64
 libmuffin.so.0 libmuffin0 #MINVER#
  _meta_plugin_effect_started@Base 1.1.0
  (optional)meta_accel_label_get_type@Base 1.1.0
@@ -6,6 +6,11 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_atom_get_type@Base 1.1.0
  meta_background_actor_get_type@Base 1.1.0
  meta_background_actor_new_for_screen@Base 1.1.0
+ meta_background_get_type@Base 3.2.1
+ meta_background_new@Base 3.2.1
+ meta_background_set_layer@Base 3.2.1
+ meta_background_set_layer_wrap_mode@Base 3.2.1
+ meta_background_set_visible_region@Base 3.2.1
  meta_bell_type_get_type@Base 3.0.3
  meta_bug@Base 1.1.0
  meta_button_function_get_type@Base 1.1.0
