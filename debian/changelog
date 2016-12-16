@@ -1,4 +1,4 @@
-muffin (3.2.1-1~) UNRELEASED; urgency=medium
+muffin (3.2.1-1) experimental; urgency=medium
 
   [ Margarita Manterola ]
   * New upstream release.
@@ -7,7 +7,7 @@ muffin (3.2.1-1~) UNRELEASED; urgency=medium
   * Drop upstream applied patches
   * Update symbols files.
 
- -- Margarita Manterola <marga@debian.org>  Thu, 08 Dec 2016 13:51:53 -0300
+ -- Maximiliano Curia <maxy@debian.org>  Fri, 16 Dec 2016 23:09:51 +0100
 
 muffin (3.0.5-2) unstable; urgency=medium
 
