@@ -1,3 +1,9 @@
+muffin (3.2.1-2) unstable; urgency=medium
+
+  * Release to unstable
+
+ -- Margarita Manterola <marga@debian.org>  Tue, 20 Dec 2016 20:19:25 -0300
+
 muffin (3.2.1-1) experimental; urgency=medium
 
   [ Margarita Manterola ]
