@@ -1,9 +1,11 @@
-muffin (3.4.0-1~) UNRELEASED; urgency=medium
+muffin (3.4.0-1) experimental; urgency=medium
 
   * New upstream release (3.4.0).
   * Update symbols files.
+  * Bump group breaks (3.4)
+  * Release to experimental
 
- -- Maximiliano Curia <maxy@debian.org>  Fri, 04 Aug 2017 21:48:51 +0200
+ -- Maximiliano Curia <maxy@debian.org>  Sun, 06 Aug 2017 17:31:48 +0200
 
 muffin (3.2.1-2) unstable; urgency=medium
 
