@@ -18,7 +18,7 @@ Build-Depends:
  gtk-doc-tools,
  intltool (>= 0.34.90),
  libcanberra-gtk3-dev,
- libcinnamon-desktop-dev (>= 2.4.0),
+ libcinnamon-desktop-dev (>= 3.6),
  libclutter-1.0-dev (>= 1.14.3),
  libcogl-dev (>= 1.13.3),
  libgconf2-dev (>= 2.6.1-2),
@@ -66,7 +66,7 @@ Description: lightweight window and compositing manager
  manager.
  .
  This package contains the core binaries.
-Breaks: cinnamon (<< 3.4)
+Breaks: cinnamon (<< 3.6)
 
 Package: libmuffin0
 Section: libs
@@ -76,7 +76,7 @@ Depends:
  muffin-common (= ${source:Version}),
  ${misc:Depends},
  ${shlibs:Depends},
-Breaks: cinnamon (<< 3.4)
+Breaks: cinnamon (<< 3.6)
 Description: lightweight window and compositing manager (shared library)
  Muffin is a small window manager performing compositing as well based on
  GTK+ and Clutter and used in desktop environment such as Cinnamon.
