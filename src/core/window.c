@@ -189,7 +189,9 @@ enum {
   PROP_GTK_APPLICATION_OBJECT_PATH,
   PROP_GTK_WINDOW_OBJECT_PATH,
   PROP_GTK_APP_MENU_OBJECT_PATH,
-  PROP_GTK_MENUBAR_OBJECT_PATH
+  PROP_GTK_MENUBAR_OBJECT_PATH,
+  PROP_PROGRESS,
+  PROP_PROGRESS_PULSE
 };
 
 enum
@@ -347,6 +349,12 @@ meta_window_get_property(GObject         *object,
       break;
     case PROP_GTK_MENUBAR_OBJECT_PATH:
       g_value_set_string (value, win->gtk_menubar_object_path);
+      break;
+    case PROP_PROGRESS:
+      g_value_set_uint (value, win->progress);
+      break;
+    case PROP_PROGRESS_PULSE:
+      g_value_set_boolean (value, win->progress_pulse);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -572,6 +580,24 @@ meta_window_class_init (MetaWindowClass *klass)
                                                         "Contents of the _GTK_MENUBAR_OBJECT_PATH property of this window",
                                                         NULL,
                                                         G_PARAM_READABLE));
+
+  g_object_class_install_property (object_class,
+                                   PROP_PROGRESS,
+                                   g_param_spec_uint ("progress",
+                                                      "Progress",
+                                                      "The progress of some long-running operation",
+                                                      0,
+                                                      100,
+                                                      0,
+                                                      G_PARAM_READABLE));
+
+  g_object_class_install_property (object_class,
+                                   PROP_PROGRESS_PULSE,
+                                   g_param_spec_boolean ("progress-pulse",
+                                                         "Pulsing progress",
+                                                         "Show indeterminate or ongoing progress of an operation.",
+                                                         FALSE,
+                                                         G_PARAM_READABLE));
 
   window_signals[WORKSPACE_CHANGED] =
     g_signal_new ("workspace-changed",
@@ -1110,6 +1136,7 @@ meta_window_new_with_attrs (MetaDisplay       *display,
   window->icon = NULL;
   window->mini_icon = NULL;
   meta_icon_cache_init (&window->icon_cache);
+  window->theme_icon_name = NULL;
   window->wm_hints_pixmap = None;
   window->wm_hints_mask = None;
   window->wm_hints_urgent = FALSE;
@@ -12051,4 +12078,26 @@ meta_window_tile (MetaWindow *window,
   }
 
   return TRUE;
+}
+
+/**
+ * meta_window_get_icon_name:
+ * @window: a #MetaWindow
+ *
+ * Returns the currently set icon name or icon path for the window.
+ *
+ * Note:
+ *
+ * This will currently only be non-NULL for programs that use XAppGtkWindow
+ * in place of GtkWindow and use xapp_gtk_window_set_icon_name() or 
+ * set_icon_from_file().  These methods will need to be used explicitly in
+ * C programs, but for introspection use you should not need to treat it any
+ * differently (except for using the correct window class.)
+ */
+const char *
+meta_window_get_icon_name (MetaWindow *window)
+{
+    g_return_val_if_fail (META_IS_WINDOW (window), NULL);
+
+    return window->theme_icon_name;
 }
