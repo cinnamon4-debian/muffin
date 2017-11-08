@@ -381,6 +381,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_get_gtk_unique_bus_name@Base 1.1.0
  meta_window_get_gtk_window_object_path@Base 1.1.0
  meta_window_get_icon_geometry@Base 1.1.0
+ meta_window_get_icon_name@Base 3.6.0
  meta_window_get_input_rect@Base 1.1.0
  meta_window_get_layer@Base 1.1.0
  meta_window_get_maximized@Base 1.1.0
