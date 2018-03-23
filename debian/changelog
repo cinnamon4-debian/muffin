@@ -1,8 +1,9 @@
-muffin (3.6.0-1~) UNRELEASED; urgency=medium
+muffin (3.6.0-1~1) UNRELEASED; urgency=medium
 
   * New upstream release (3.6.0).
   * Bump group breaks (3.6).
   * Update symbols.
+  * Add missed libcinnamon-desktop-dev to libmuffin-dev deps.
 
  -- Fabio Fantoni <fantonifabio@tiscali.it>  Wed, 08 Nov 2017 13:48:24 +0100
 

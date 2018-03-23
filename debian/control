@@ -67,6 +67,7 @@ Section: libdevel
 Architecture: any
 Depends:
  gir1.2-meta-muffin-0.0 (= ${binary:Version}),
+ libcinnamon-desktop-dev,
  libclutter-1.0-dev (>= 1.0.0),
  libgtk-3-dev (>= 3.0.0),
  libmuffin0 (= ${binary:Version}),
