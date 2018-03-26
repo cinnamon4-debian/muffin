@@ -9,7 +9,7 @@ Uploaders:
 Build-Depends:
  autoconf-archive,
  automake,
- debhelper (>= 9),
+ debhelper (>= 11~),
  dh-acc,
  dh-autoreconf,
  gnome-doc-utils (>= 0.8),
