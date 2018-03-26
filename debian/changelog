@@ -1,11 +1,17 @@
-muffin (3.6.0-1~1) UNRELEASED; urgency=medium
+muffin (3.6.0-1~2) UNRELEASED; urgency=medium
 
+  [ Fabio Fantoni ]
   * New upstream release (3.6.0).
   * Bump group breaks (3.6).
   * Update symbols.
   * Add missed libcinnamon-desktop-dev to libmuffin-dev deps.
 
- -- Fabio Fantoni <fantonifabio@tiscali.it>  Wed, 08 Nov 2017 13:48:24 +0100
+  [ Maximiliano Curia ]
+  * Set new ml as Maintainer
+  * Drop gconf build dep.
+    Thanks to Jeremy Bicha for the report (Closes: 891439)
+
+ -- Maximiliano Curia <maxy@debian.org>  Mon, 26 Mar 2018 12:40:38 +0200
 
 muffin (3.4.1-1) unstable; urgency=medium
 
