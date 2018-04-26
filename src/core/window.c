@@ -142,11 +142,12 @@ static void unminimize_window_and_all_transient_parents (MetaWindow *window);
 
 static void meta_window_update_monitor (MetaWindow *window);
 
-static void notify_tile_type (MetaWindow *window);
-
 static void normalize_tile_state (MetaWindow *window);
 
 static unsigned int get_mask_from_snap_keysym (MetaWindow *window);
+
+static void update_edge_constraints (MetaWindow *window);
+static void update_gtk_edge_constraints (MetaWindow *window);
 
 /* Idle handlers for the three queues (run with meta_later_add()). The
  * "data" parameter in each case will be a GINT_TO_POINTER of the
@@ -2246,6 +2247,10 @@ set_net_wm_state (MetaWindow *window)
                      window->display->atom__NET_WM_WINDOW_TILE_INFO);
     meta_error_trap_pop (window->display);
   }
+
+  meta_error_trap_push (window->display);
+  update_gtk_edge_constraints (window);
+  meta_error_trap_pop (window->display);
 }
 
 LOCAL_SYMBOL gboolean
@@ -3040,27 +3045,7 @@ meta_window_show (MetaWindow *window)
       ( (!place_on_top_on_map && !takes_focus_on_map) ||
       window_would_be_covered (window) )
     ) {
-      if (meta_window_is_ancestor_of_transient (focus_window, window))
-        {
-          guint32     timestamp;
-
-          timestamp = meta_display_get_current_time_roundtrip (window->display);
-
-          /* This happens for error dialogs or alerts; these need to remain on
-           * top, but it would be confusing to have its ancestor remain
-           * focused.
-           */
-          meta_topic (META_DEBUG_STARTUP,
-                      "The focus window %s is an ancestor of the newly mapped "
-                      "window %s which isn't being focused.  Unfocusing the "
-                      "ancestor.\n",
-                      focus_window->desc, window->desc);
-
-          meta_display_focus_the_no_focus_window (window->display,
-                                                  window->screen,
-                                                  timestamp);
-        }
-      else
+      if (!meta_window_is_ancestor_of_transient (focus_window, window))
         {
           needs_stacking_adjustment = TRUE;
           if (!window->placed)
@@ -3504,7 +3489,6 @@ meta_window_maximize_internal (MetaWindow        *window,
 
   meta_window_set_tile_type (window, META_WINDOW_TILE_TYPE_NONE);
   window->tile_mode = META_TILE_NONE;
-  notify_tile_type (window);
   normalize_tile_state (window);
 
   if (maximize_horizontally && maximize_vertically)
@@ -3516,6 +3500,9 @@ meta_window_maximize_internal (MetaWindow        *window,
     window->maximized_vertically   || maximize_vertically;
   if (maximize_horizontally || maximize_vertically)
     window->force_save_user_rect = FALSE;
+
+  /* Update the edge constraints */
+  update_edge_constraints (window);;
 
   recalc_window_features (window);
   set_net_wm_state (window);
@@ -3732,14 +3719,6 @@ meta_window_requested_dont_bypass_compositor (MetaWindow *window)
 }
 
 static void
-notify_tile_type (MetaWindow *window)
-{
-  g_object_freeze_notify (G_OBJECT (window));
-  g_object_notify (G_OBJECT (window), "tile-type");
-  g_object_thaw_notify (G_OBJECT (window));
-}
-
-static void
 normalize_tile_state (MetaWindow *window)
 {
   window->snap_queued = FALSE;
@@ -3810,8 +3789,6 @@ meta_window_real_tile (MetaWindow *window, gboolean force)
 
   meta_screen_tile_preview_hide (window->screen);
   meta_window_get_outer_rect (window, &window->snapped_rect);
-
-  notify_tile_type (window);
 }
 
 static gboolean
@@ -3900,7 +3877,6 @@ unmaximize_window_before_freeing (MetaWindow        *window)
   if (window->tile_type != META_WINDOW_TILE_TYPE_NONE) {
     meta_window_set_tile_type (window, META_WINDOW_TILE_TYPE_NONE);
     meta_screen_update_snapped_windows (window->screen);
-    notify_tile_type (window);
   }
 
   if (window->withdrawn)                /* See bug #137185 */
@@ -3955,7 +3931,7 @@ meta_window_unmaximize_internal (MetaWindow        *window,
       window->last_tile_mode = META_TILE_NONE;
       window->tile_mode = META_TILE_NONE;
       window->resizing_tile_type = META_WINDOW_TILE_TYPE_NONE;
-      window->tile_type = META_WINDOW_TILE_TYPE_NONE;
+      meta_window_set_tile_type (window, META_WINDOW_TILE_TYPE_NONE);
 
       meta_window_get_work_area_for_monitor (window, window->monitor->number, &work_area);
 
@@ -4040,14 +4016,12 @@ meta_window_unmaximize_internal (MetaWindow        *window,
           window->display->grab_anchor_window_pos = window->user_rect;
         }
 
-      if (window->tile_type != META_WINDOW_TILE_TYPE_NONE) {
-          meta_window_set_tile_type (window, META_WINDOW_TILE_TYPE_NONE);
-          notify_tile_type (window);
-      }
       if (window->resizing_tile_type == META_WINDOW_TILE_TYPE_NONE)
           window->custom_snap_size = FALSE;
 
       meta_screen_update_snapped_windows (window->screen);
+
+      update_edge_constraints (window);
 
       recalc_window_features (window);
       set_net_wm_state (window);
@@ -6300,6 +6274,31 @@ update_net_frame_extents (MetaWindow *window)
   meta_error_trap_pop (window->display);
 }
 
+static void
+update_gtk_edge_constraints (MetaWindow *window)
+{
+  MetaEdgeConstraint *constraints = window->edge_constraints;
+  unsigned long data[1];
+
+  /* Edge constraints */
+  data[0] = (constraints[0] != META_EDGE_CONSTRAINT_NONE ? 1 : 0)    << 0 |
+            (constraints[0] != META_EDGE_CONSTRAINT_MONITOR ? 1 : 0) << 1 |
+            (constraints[1] != META_EDGE_CONSTRAINT_NONE ? 1 : 0)    << 2 |
+            (constraints[1] != META_EDGE_CONSTRAINT_MONITOR ? 1 : 0) << 3 |
+            (constraints[2] != META_EDGE_CONSTRAINT_NONE ? 1 : 0)    << 4 |
+            (constraints[2] != META_EDGE_CONSTRAINT_MONITOR ? 1 : 0) << 5 |
+            (constraints[3] != META_EDGE_CONSTRAINT_NONE ? 1 : 0)    << 6 |
+            (constraints[3] != META_EDGE_CONSTRAINT_MONITOR ? 1 : 0) << 7;
+
+  meta_verbose ("Setting _GTK_EDGE_CONSTRAINTS to %lu\n", data[0]);
+
+  XChangeProperty (window->display->xdisplay,
+                   window->xwindow,
+                   window->display->atom__GTK_EDGE_CONSTRAINTS,
+                   XA_CARDINAL, 32, PropModeReplace,
+                   (guchar*) data, 1);
+}
+
 LOCAL_SYMBOL void
 meta_window_set_current_workspace_hint (MetaWindow *window)
 {
@@ -7447,8 +7446,6 @@ meta_window_notify_focus (MetaWindow *window,
                             window->colormap);
           meta_error_trap_pop (window->display);
 
-          /* move into FOCUSED_WINDOW layer */
-          meta_window_update_layer (window);
 
           /* Ungrab click to focus button since the sync grab can interfere
            * with some things you might do inside the focused window, by
@@ -7511,9 +7508,6 @@ meta_window_notify_focus (MetaWindow *window,
           XUninstallColormap (window->display->xdisplay,
                               window->colormap);
           meta_error_trap_pop (window->display);
-
-          /* move out of FOCUSED_WINDOW layer */
-          meta_window_update_layer (window);
 
           /* Re-grab for click to focus and raise-on-click, if necessary */
           if (meta_prefs_get_focus_mode () == C_DESKTOP_FOCUS_MODE_CLICK ||
@@ -11906,6 +11900,9 @@ meta_window_set_tile_type (MetaWindow        *window,
 
     if (window->tile_type != type) {
         window->tile_type = type;
+        g_object_freeze_notify (G_OBJECT (window));
+        g_object_notify (G_OBJECT (window), "tile-type");
+        g_object_thaw_notify (G_OBJECT (window));
     }
 }
 
@@ -12025,6 +12022,92 @@ meta_window_can_tile (MetaWindow *window, MetaTileMode mode)
     default:
         return FALSE;
   }
+}
+
+static void
+update_edge_constraints (MetaWindow *window)
+{
+  switch (window->tile_mode)
+    {
+    case META_TILE_NONE:
+      window->edge_constraints[0] = META_EDGE_CONSTRAINT_NONE;
+      window->edge_constraints[1] = META_EDGE_CONSTRAINT_NONE;
+      window->edge_constraints[2] = META_EDGE_CONSTRAINT_NONE;
+      window->edge_constraints[3] = META_EDGE_CONSTRAINT_NONE;
+      break;
+
+    case META_TILE_MAXIMIZE:
+      window->edge_constraints[0] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[1] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[2] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[3] = META_EDGE_CONSTRAINT_MONITOR;
+      break;
+
+    case META_TILE_LEFT:
+      window->edge_constraints[0] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[1] = META_EDGE_CONSTRAINT_NONE;
+      window->edge_constraints[2] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[3] = META_EDGE_CONSTRAINT_MONITOR;
+      break;
+
+    case META_TILE_RIGHT:
+      window->edge_constraints[0] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[1] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[2] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[3] = META_EDGE_CONSTRAINT_NONE;
+      break;
+
+    case META_TILE_TOP:
+      window->edge_constraints[0] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[1] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[2] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[3] = META_EDGE_CONSTRAINT_NONE;
+      break;
+
+    case META_TILE_BOTTOM:
+      window->edge_constraints[0] = META_EDGE_CONSTRAINT_NONE;
+      window->edge_constraints[1] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[2] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[3] = META_EDGE_CONSTRAINT_MONITOR;
+      break;
+    case META_TILE_ULC:
+      window->edge_constraints[0] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[1] = META_EDGE_CONSTRAINT_NONE;
+      window->edge_constraints[2] = META_EDGE_CONSTRAINT_NONE;
+      window->edge_constraints[3] = META_EDGE_CONSTRAINT_MONITOR;
+      break;
+    case META_TILE_URC:
+      window->edge_constraints[0] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[1] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[2] = META_EDGE_CONSTRAINT_NONE;
+      window->edge_constraints[3] = META_EDGE_CONSTRAINT_NONE;
+      break;
+    case META_TILE_LLC:
+      window->edge_constraints[0] = META_EDGE_CONSTRAINT_NONE;
+      window->edge_constraints[1] = META_EDGE_CONSTRAINT_NONE;
+      window->edge_constraints[2] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[3] = META_EDGE_CONSTRAINT_MONITOR;
+      break;
+    case META_TILE_LRC:
+      window->edge_constraints[0] = META_EDGE_CONSTRAINT_NONE;
+      window->edge_constraints[1] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[2] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[3] = META_EDGE_CONSTRAINT_NONE;
+      break;
+    }
+
+  /* h/vmaximize also modify the edge constraints */
+  if (window->maximized_vertically)
+    {
+      window->edge_constraints[0] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[2] = META_EDGE_CONSTRAINT_MONITOR;
+    }
+
+  if (window->maximized_horizontally)
+    {
+      window->edge_constraints[1] = META_EDGE_CONSTRAINT_MONITOR;
+      window->edge_constraints[3] = META_EDGE_CONSTRAINT_MONITOR;
+    }
 }
 
 /**
