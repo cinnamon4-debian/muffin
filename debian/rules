@@ -33,8 +33,9 @@ override_dh_girepository:
 override_dh_strip:
 	dh_strip --dbgsym-migration='muffin-dbg (<< 3.0.3-1~)' || dh_strip
 
-override_dh_install:
-	dh_install -X.la --fail-missing
+# --list-missing will be default in compat 12
+override_dh_missing:
+	dh_missing --list-missing
 
 run_dh_acc:
 	# The package needs to be installed (@ in autopkgtest)
