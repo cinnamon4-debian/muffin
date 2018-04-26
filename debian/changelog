@@ -1,3 +1,9 @@
+muffin (3.8.0-1~) UNRELEASED; urgency=medium
+
+  * New upstream release (3.8.0).
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Thu, 26 Apr 2018 16:27:14 +0200
+
 muffin (3.6.0-1) unstable; urgency=medium
 
   [ Fabio Fantoni ]
