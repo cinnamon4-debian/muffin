@@ -1,4 +1,4 @@
-muffin (3.8.0-1~1) UNRELEASED; urgency=medium
+muffin (3.8.0-1) experimental; urgency=medium
 
   [ Fabio Fantoni ]
   * New upstream release (3.8.0).
@@ -6,8 +6,11 @@ muffin (3.8.0-1~1) UNRELEASED; urgency=medium
   [ Maximiliano Curia ]
   * Bump Standards-Version to 4.1.4.
   * Install the typelib file to the m-a girrepository
+  * Enable hardening bindnow
+  * Bump group breaks (3.8)
+  * Release to experimental
 
- -- Maximiliano Curia <maxy@debian.org>  Tue, 01 May 2018 22:57:39 +0200
+ -- Maximiliano Curia <maxy@debian.org>  Sat, 05 May 2018 14:30:18 +0200
 
 muffin (3.6.0-1) unstable; urgency=medium
 
