@@ -1,2 +1,6 @@
 usr/lib/*/libmuffin.so.0
 usr/lib/*/libmuffin.so.0.*
+usr/lib/*/libmuffin-clutter-0.so
+usr/lib/*/libmuffin-cogl-0.so
+usr/lib/*/libmuffin-cogl-pango-0.so
+usr/lib/*/libmuffin-cogl-path-0.so
