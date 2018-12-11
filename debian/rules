@@ -34,6 +34,9 @@ override_dh_strip:
 override_dh_missing:
 	dh_missing --list-missing
 
+override_dh_auto_test:
+	: temporary
+
 run_dh_acc:
 	# The package needs to be installed (@ in autopkgtest)
 	for in_file in debian/*.acc.in; do \
