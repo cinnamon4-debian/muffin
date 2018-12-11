@@ -1,5 +1,6 @@
 # libtool not installed
 usr/lib/*/libmuffin.la
+usr/lib/*/muffin/libmuffin-*.la
 # gir file not installed
 usr/lib/*/muffin/*.gir
 # already installed in girepository

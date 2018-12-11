@@ -24,7 +24,7 @@ override_dh_auto_configure:
 	                     --disable-silent-rules
 
 override_dh_install:
-	dh_install -p gir1.2-meta-muffin-0.0 debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/muffin/Meta-Muffin.*.typelib /usr/lib/$(DEB_HOST_MULTIARCH)/girepository-1.0
+	dh_install -p gir1.2-meta-muffin-0.0 debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/muffin/*.typelib /usr/lib/$(DEB_HOST_MULTIARCH)/girepository-1.0
 	dh_install --remaining-packages
 
 override_dh_strip:
