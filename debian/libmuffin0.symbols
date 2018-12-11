@@ -1,7 +1,8 @@
-# SymbolsHelper-Confirmed: 3.4.0 amd64
 libmuffin.so.0 libmuffin0 #MINVER#
- _meta_plugin_effect_started@Base 1.1.0
- (optional)meta_accel_label_get_type@Base 1.1.0
+ meta_accel_label_get_type@Base 1.1.0
+ meta_actor_is_untransformed@Base 4.0.4-1~
+ meta_actor_painting_untransformed@Base 4.0.4-1~
+ meta_actor_vertices_are_untransformed@Base 4.0.4-1~
  meta_add_verbose_topic@Base 1.1.0
  meta_atom_get_type@Base 1.1.0
  meta_background_actor_get_type@Base 1.1.0
@@ -15,9 +16,8 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_bell_type_get_type@Base 3.0.3
  meta_bug@Base 1.1.0
  meta_button_function_get_type@Base 1.1.0
+ meta_cogl_rectangle_new@Base 4.0.4-1~
  meta_cogl_texture_new_from_data_wrapper@Base 2.6.0
- meta_cogl_texture_new_from_file_wrapper@Base 2.6.0
- meta_cogl_texture_new_with_size_wrapper@Base 2.6.0
  meta_comp_effect_get_type@Base 1.1.0
  meta_compositor_add_window@Base 1.1.0
  meta_compositor_destroy@Base 1.1.0
@@ -44,6 +44,8 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_compositor_unmanage_screen@Base 1.1.0
  meta_compositor_unmaximize_window@Base 1.1.0
  meta_compositor_window_shape_changed@Base 1.1.0
+ meta_create_color_texture_4ub@Base 4.0.4-1~
+ meta_create_texture_pipeline@Base 4.0.4-1~
  meta_cursor_get_type@Base 1.1.0
  meta_debug_spew_real@Base 1.1.0
  meta_debug_topic_get_type@Base 1.1.0
@@ -83,6 +85,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_display_register_sync_alarm@Base 2.8.1
  meta_display_remove_custom_keybinding@Base 1.8.1
  meta_display_remove_keybinding@Base 1.1.0
+ meta_display_restart@Base 4.0.4-1~
  meta_display_screen_for_root@Base 1.1.0
  meta_display_set_input_focus_window@Base 1.1.0
  meta_display_sort_windows_by_stacking@Base 1.1.0
@@ -101,10 +104,11 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_exit_code_get_type@Base 1.1.0
  meta_fatal@Base 1.1.0
  meta_frame_borders_clear@Base 1.1.0
+ meta_frame_clear_cached_borders@Base 4.0.4-1~
  meta_frame_flags_get_type@Base 1.1.0
  meta_frame_type_get_type@Base 1.1.0
  meta_frame_type_to_string@Base 1.1.0
- (optional)meta_frames_get_type@Base 1.1.0
+ meta_frames_get_type@Base 1.1.0
  meta_free_gslist_and_elements@Base 1.1.0
  meta_g_utf8_strndup@Base 1.1.0
  meta_get_background_actor_for_screen@Base 1.1.0
@@ -147,9 +151,9 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_maximize_flags_get_type@Base 1.1.0
  meta_menu_op_get_type@Base 1.1.0
  meta_modal_options_get_type@Base 1.1.0
- (optional)meta_module_get_type@Base 1.1.0
+ meta_module_get_type@Base 1.1.0
  meta_motion_direction_get_type@Base 1.1.0
- (optional)meta_pango_font_desc_get_text_height@Base 1.1.0
+ meta_pango_font_desc_get_text_height@Base 1.1.0
  meta_placement_mode_get_type@Base 2.0.5
  meta_plugin_begin_modal@Base 1.1.0
  meta_plugin_debug_mode@Base 1.1.0
@@ -160,7 +164,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_plugin_get_type@Base 1.1.0
  meta_plugin_manager_hide_hud_preview@Base 2.6.0
  meta_plugin_manager_hide_tile_preview@Base 2.6.0
- (optional)meta_plugin_manager_load@Base 1.1.0
+ meta_plugin_manager_load@Base 1.1.0
  meta_plugin_manager_new@Base 2.6.0
  meta_plugin_manager_set_plugin_type@Base 2.6.0
  meta_plugin_manager_show_hud_preview@Base 2.6.0
@@ -173,6 +177,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_plugin_tile_completed@Base 2.0.5
  meta_plugin_unmaximize_completed@Base 1.1.0
  meta_pop_no_msg_prefix@Base 1.1.0
+ meta_pre_exec_close_fds@Base 4.0.4-1~
  meta_preference_get_type@Base 1.1.0
  meta_preference_to_string@Base 1.1.0
  meta_prefs_add_listener@Base 1.1.0
@@ -198,6 +203,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_prefs_get_focus_new_windows@Base 1.1.0
  meta_prefs_get_force_fullscreen@Base 1.1.0
  meta_prefs_get_gnome_animations@Base 1.1.0
+ meta_prefs_get_ignore_hide_titlebar_when_maximized@Base 4.0.4-1~
  meta_prefs_get_invert_flip_direction@Base 2.0.5
  meta_prefs_get_keybinding_action@Base 1.1.0
  meta_prefs_get_keybindings@Base 1.1.0
@@ -212,8 +218,11 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_prefs_get_placement_mode@Base 2.0.5
  meta_prefs_get_raise_on_click@Base 1.1.0
  meta_prefs_get_resize_threshold@Base 2.0.5
+ meta_prefs_get_send_frame_timings@Base 4.0.4-1~
  meta_prefs_get_snap_modifier@Base 2.0.5
+ meta_prefs_get_sync_to_vblank@Base 4.0.4-1~
  meta_prefs_get_theme@Base 1.1.0
+ meta_prefs_get_threaded_swap@Base 4.0.4-1~
  meta_prefs_get_tile_hud_threshold@Base 2.0.5
  meta_prefs_get_tile_maximize@Base 2.0.5
  meta_prefs_get_titlebar_font@Base 1.1.0
@@ -255,6 +264,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_rectangle_union@Base 1.1.0
  meta_rectangle_vert_overlap@Base 1.1.0
  meta_remove_verbose_topic@Base 1.1.0
+ meta_restart@Base 4.0.4-1~
  meta_run@Base 1.1.0
  meta_screen_append_new_workspace@Base 1.1.0
  meta_screen_corner_get_type@Base 1.1.0
@@ -305,9 +315,10 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_shaped_texture_new@Base 1.1.0
  meta_shaped_texture_set_clip_region@Base 1.1.0
  meta_shaped_texture_set_create_mipmaps@Base 1.1.0
+ meta_shaped_texture_set_opaque_region@Base 4.0.4-1~
  meta_shaped_texture_set_overlay_path@Base 1.1.0
- meta_shaped_texture_set_pixmap@Base 1.1.0
  meta_shaped_texture_set_shape_region@Base 1.1.0
+ meta_shaped_texture_set_texture@Base 4.0.4-1~
  meta_shaped_texture_update_area@Base 1.1.0
  meta_show_dialog@Base 1.1.0
  meta_side_get_type@Base 1.1.0
@@ -347,6 +358,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_actor_post_paint@Base 2.8.1
  meta_window_actor_pre_paint@Base 2.8.1
  meta_window_actor_queue_frame_drawn@Base 2.8.1
+ meta_window_actor_set_unobscured_region@Base 4.0.4-1~
  meta_window_actor_set_updates_frozen@Base 2.8.1
  meta_window_actor_show@Base 1.1.0
  meta_window_actor_showing_on_its_workspace@Base 1.1.0
@@ -363,6 +375,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_find_root_ancestor@Base 1.1.0
  meta_window_foreach_ancestor@Base 1.1.0
  meta_window_foreach_transient@Base 1.1.0
+ meta_window_frame_size_changed@Base 4.0.4-1~
  meta_window_get_all_monitors@Base 3.0.3
  meta_window_get_client_machine@Base 1.1.0
  meta_window_get_compositor_private@Base 1.1.0
@@ -409,7 +422,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_get_wm_class_instance@Base 1.1.0
  meta_window_get_workspace@Base 1.1.0
  meta_window_get_xwindow@Base 1.1.0
- (optional)meta_window_group_get_type@Base 1.1.0
+ meta_window_group_get_type@Base 1.1.0
  meta_window_group_leader_changed@Base 1.1.0
  meta_window_has_focus@Base 1.1.0
  meta_window_is_ancestor_of_transient@Base 1.1.0
@@ -447,6 +460,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_set_tile_type@Base 2.0.5
  meta_window_showing_on_its_workspace@Base 1.1.0
  meta_window_shutdown_group@Base 1.1.0
+ meta_window_stack_just_above@Base 4.0.4-1~
  meta_window_stick@Base 1.1.0
  meta_window_tile@Base 2.4.2
  meta_window_tile_type_get_type@Base 2.0.5
