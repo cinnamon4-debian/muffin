@@ -25,6 +25,14 @@
       </_description>
     </key>
 
+    <key name="ignore-hide-titlebar-when-maximized" type="b">
+      <default>false</default>
+      <_summary>Ignore client requests to hide the window's titlebar when maximized.</_summary>
+      <_description>
+        If true, causes the _GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED hint to be ignored by muffin.  Most apps that utilize this should (one would hope) use the hint responsibly, but this will allow it to be overridden just in case.
+      </_description>
+    </key>
+
     <key name="edge-tiling" type="b">
       <default>true</default>
       <_summary>Enable edge tiling and snapping</_summary>
@@ -36,8 +44,8 @@
 
     <key name="edge-resistance-window" type="b">
       <default>true</default>
-      <summary>Enable windows edge resitance</summary>
-      <description>Determine whether the window edges can snap to each other.</description>
+      <summary>Enable window edge resistance</summary>
+      <description>Determine whether there is tension along other window and screen/monitor edges when dragging a window.</description>
     </key>
 
     <key name="dynamic-workspaces" type="b">
@@ -55,6 +63,30 @@
       <_summary>Fullscreen windows are unredirected (i.e. they bypass compositing)</_summary>
       <_description>
         Determines whether fullscreen windows bypass compositing. False is better for vsync/screen-tearing, True gives games and apps i
+      </_description>
+    </key>
+
+    <key name="sync-to-vblank" type="b">
+      <default>true</default>
+      <_summary>Enable vertical blanking interval</_summary>
+      <_description>
+        Determines whether or not VBLANK is enabled.
+      </_description>
+    </key>
+
+    <key name="threaded-swap" type="b">
+      <default>true</default>
+      <_summary>Enable threaded swap waiting</_summary>
+      <_description>
+        Determines whether or not Cogl uses a threaded implementation for waiting for swap events.
+      </_description>
+    </key>
+
+    <key name="send-frame-timings" type="b">
+      <default>true</default>
+      <_summary>Enable high-precision frame synchronization</_summary>
+      <_description>
+        Sends a _NET_WM_FRAME_TIMINGS message to the X server after each frame rendered to help keep frames synchronized.
       </_description>
     </key>
 

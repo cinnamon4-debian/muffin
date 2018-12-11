@@ -56,21 +56,17 @@ struct _MetaShapedTexture
 
 GType meta_shaped_texture_get_type (void) G_GNUC_CONST;
 
-ClutterActor *meta_shaped_texture_new (void);
-
 void meta_shaped_texture_set_create_mipmaps (MetaShapedTexture *stex,
 					     gboolean           create_mipmaps);
 
-void meta_shaped_texture_update_area (MetaShapedTexture *stex,
-                                      int                x,
-                                      int                y,
-                                      int                width,
-                                      int                height);
+gboolean meta_shaped_texture_update_area (MetaShapedTexture *stex,
+                                          int                x,
+                                          int                y,
+                                          int                width,
+                                          int                height,
+                                          cairo_region_t    *unobscured_region);
 
-void meta_shaped_texture_set_pixmap (MetaShapedTexture *stex,
-                                     Pixmap             pixmap);
-
-CoglHandle meta_shaped_texture_get_texture (MetaShapedTexture *stex);
+CoglTexture *meta_shaped_texture_get_texture (MetaShapedTexture *stex);
 
 void meta_shaped_texture_set_shape_region (MetaShapedTexture *stex,
                                            cairo_region_t    *region);
@@ -79,12 +75,18 @@ void meta_shaped_texture_set_overlay_path (MetaShapedTexture *stex,
                                            cairo_region_t    *overlay_region,
                                            cairo_path_t      *overlay_path);
 
-/* Assumes ownership of clip_region */
 void meta_shaped_texture_set_clip_region (MetaShapedTexture *stex,
 					  cairo_region_t    *clip_region);
 
+void meta_shaped_texture_set_opaque_region (MetaShapedTexture *stex,
+                                            cairo_region_t    *opaque_region);
+
 cairo_surface_t * meta_shaped_texture_get_image (MetaShapedTexture     *stex,
                                                  cairo_rectangle_int_t *clip);
+
+void meta_shaped_texture_ensure_mask (MetaShapedTexture *stex);
+
+void meta_shaped_texture_dirty_mask (MetaShapedTexture *stex);
 
 G_END_DECLS
 

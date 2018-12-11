@@ -25,6 +25,8 @@ struct _MetaCompositor
 
   ClutterActor   *shadow_src;
 
+  CoglContext    *context;
+
   MetaPlugin     *modal_plugin;
 
   gint64          server_time_query_time;
@@ -41,6 +43,7 @@ struct _MetaCompositor
 
 struct _MetaCompScreen
 {
+  MetaCompositor        *compositor;
   MetaScreen            *screen;
 
   ClutterActor          *stage, *bottom_window_group, *window_group, *overlay_group, *top_window_group;
@@ -66,7 +69,7 @@ struct _MetaCompScreen
 };
 
 /* Wait 2ms after vblank before starting to draw next frame */
-#define META_SYNC_DELAY 2
+#define META_SYNC_DELAY 0
 
 void meta_switch_workspace_completed (MetaScreen    *screen);
 

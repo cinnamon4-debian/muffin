@@ -7,6 +7,7 @@
 
 #include <X11/extensions/Xdamage.h>
 #include <meta/compositor-muffin.h>
+#include <clutter/clutter-muffin.h>
 
 MetaWindowActor *meta_window_actor_new (MetaWindow *window);
 
@@ -33,9 +34,6 @@ void meta_window_actor_process_damage (MetaWindowActor    *self,
 
 void meta_window_actor_pre_paint      (MetaWindowActor    *self);
 void meta_window_actor_post_paint     (MetaWindowActor    *self);
-void meta_window_actor_frame_complete (MetaWindowActor    *self,
-                                       CoglFrameInfo      *frame_info,
-                                       gint64              presentation_time);
 
 void meta_window_actor_invalidate_shadow (MetaWindowActor *self);
 
@@ -66,6 +64,9 @@ void meta_window_actor_set_visible_region         (MetaWindowActor *self,
 void meta_window_actor_set_visible_region_beneath (MetaWindowActor *self,
                                                    cairo_region_t  *beneath_region);
 void meta_window_actor_reset_visible_regions      (MetaWindowActor *self);
+
+void meta_window_actor_set_unobscured_region      (MetaWindowActor *self,
+                                                   cairo_region_t  *unobscured_region);
 
 void meta_window_actor_effect_completed (MetaWindowActor *actor,
                                          gulong           event);

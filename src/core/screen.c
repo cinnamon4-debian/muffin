@@ -54,6 +54,7 @@
 #ifdef HAVE_RANDR
 #include <X11/extensions/Xrandr.h>
 #endif
+#include <X11/extensions/Xcomposite.h>
 
 #include <X11/Xatom.h>
 #include <locale.h>
@@ -605,8 +606,8 @@ reload_monitor_infos (MetaScreen *screen)
     {
       XineramaScreenInfo *infos;
       int n_infos;
-      int i;
-      
+      int i, j;
+
       n_infos = 0;
       infos = XineramaQueryScreens (display->xdisplay, &n_infos);
 
@@ -657,6 +658,13 @@ reload_monitor_infos (MetaScreen *screen)
 
                 crtc = XRRGetCrtcInfo (display->xdisplay, resources, resources->crtcs[i]);
                 info = find_monitor_with_rect (screen, crtc->x, crtc->y, (int)crtc->width, (int)crtc->height);
+                for (j = 0; j < resources->nmode; j++)
+                  {
+                    if (resources->modes[j].id == crtc->mode)
+                      info->refresh_rate = (resources->modes[j].dotClock /
+                                            ((float)resources->modes[j].hTotal *
+                                            resources->modes[j].vTotal));
+                  }
                 if (info)
                   info->output = find_main_output_for_crtc (screen, resources, crtc);
 
@@ -981,6 +989,8 @@ meta_screen_new (MetaDisplay *display,
   screen->starting_corner = META_SCREEN_TOPLEFT;
   screen->compositor_data = NULL;
   screen->guard_window = None;
+
+  screen->composite_overlay_window = XCompositeGetOverlayWindow (xdisplay, xroot);
 
   screen->monitor_infos = NULL;
   screen->n_monitor_infos = 0;
@@ -1981,6 +1991,9 @@ meta_screen_tile_preview_hide (MetaScreen *screen)
     screen->tile_preview_timeout_id = 0;
   }
 
+  if (!screen->tile_preview_visible)
+    return;
+
   meta_compositor_hide_tile_preview (screen->display->compositor,
                                      screen);
   screen->tile_preview_visible = FALSE;
@@ -2078,6 +2091,9 @@ meta_screen_tile_hud_hide (MetaScreen *screen)
     g_source_remove (screen->tile_hud_timeout_id);
     screen->tile_hud_timeout_id = 0;
   }
+
+  if (!screen->tile_hud_visible)
+    return;
 
   meta_compositor_hide_hud_preview (screen->display->compositor,
                                     screen);
@@ -3873,7 +3889,16 @@ check_fullscreen_func (gpointer data)
   g_slist_free (fullscreen_monitors);
 
   if (in_fullscreen_changed)
-    g_signal_emit (screen, screen_signals[IN_FULLSCREEN_CHANGED], 0, NULL);
+    {
+      /* DOCK window stacking depends on the monitor's fullscreen
+         status so we need to trigger a re-layering. */
+      MetaWindow *top_window = meta_stack_get_top (screen->stack);
+      if (top_window)
+        meta_stack_update_layer (screen->stack, top_window);
+
+      g_signal_emit (screen, screen_signals[IN_FULLSCREEN_CHANGED], 0, NULL);
+    }
+
 
   return FALSE;
 }

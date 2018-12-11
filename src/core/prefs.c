@@ -87,6 +87,7 @@ static CDesktopFocusMode focus_mode = C_DESKTOP_FOCUS_MODE_CLICK;
 static CDesktopFocusNewWindows focus_new_windows = C_DESKTOP_FOCUS_NEW_WINDOWS_SMART;
 static gboolean raise_on_click = TRUE;
 static gboolean attach_modal_dialogs = FALSE;
+static gboolean ignore_hide_titlebar_when_maximized = FALSE;
 static char* current_theme = NULL;
 static int num_workspaces = 4;
 static gboolean workspace_cycle = FALSE;
@@ -96,6 +97,9 @@ static CDesktopTitlebarAction action_right_click_titlebar = C_DESKTOP_TITLEBAR_A
 static CDesktopTitlebarScrollAction action_scroll_titlebar = C_DESKTOP_TITLEBAR_SCROLL_ACTION_NONE;
 static gboolean dynamic_workspaces = FALSE;
 static gboolean unredirect_fullscreen_windows = FALSE;
+static gboolean sync_to_vblank = TRUE;
+static gboolean threaded_swap = TRUE;
+static gboolean send_frame_timings = TRUE;
 static gboolean application_based = FALSE;
 static gboolean disable_workarounds = FALSE;
 static gboolean auto_raise = FALSE;
@@ -303,6 +307,13 @@ static MetaBoolPreference preferences_bool[] =
       &attach_modal_dialogs,
     },
     {
+      { "ignore-hide-titlebar-when-maximized",
+        SCHEMA_MUFFIN,
+        META_PREF_IGNORE_HIDE_TITLEBAR_WHEN_MAXIMIZED,
+      },
+      &ignore_hide_titlebar_when_maximized,
+    },
+    {
       { "raise-on-click",
         SCHEMA_GENERAL,
         META_PREF_RAISE_ON_CLICK,
@@ -336,6 +347,27 @@ static MetaBoolPreference preferences_bool[] =
         META_PREF_UNREDIRECT_FULLSCREEN_WINDOWS,
       },
       &unredirect_fullscreen_windows,
+    },
+    {
+      { "sync-to-vblank",
+        SCHEMA_MUFFIN,
+        META_PREF_SYNC_TO_VBLANK,
+      },
+      &sync_to_vblank,
+    },
+    {
+      { "threaded-swap",
+        SCHEMA_MUFFIN,
+        META_PREF_THREADED_SWAP,
+      },
+      &threaded_swap,
+    },
+    {
+      { "send-frame-timings",
+        SCHEMA_MUFFIN,
+        META_PREF_SEND_FRAME_TIMINGS,
+      },
+      &send_frame_timings,
     },
     {
       { "application-based",
@@ -1229,6 +1261,12 @@ meta_prefs_get_attach_modal_dialogs (void)
 }
 
 gboolean
+meta_prefs_get_ignore_hide_titlebar_when_maximized (void)
+{
+  return ignore_hide_titlebar_when_maximized;
+}
+
+gboolean
 meta_prefs_get_raise_on_click (void)
 {
   /* Force raise_on_click on for click-to-focus, as requested by Havoc
@@ -1730,6 +1768,24 @@ meta_prefs_get_unredirect_fullscreen_windows (void)
 }
 
 gboolean
+meta_prefs_get_sync_to_vblank (void)
+{
+  return sync_to_vblank;
+}
+
+gboolean
+meta_prefs_get_threaded_swap (void)
+{
+  return threaded_swap;
+}
+
+gboolean
+meta_prefs_get_send_frame_timings (void)
+{
+  return send_frame_timings;
+}
+
+gboolean
 meta_prefs_get_application_based (void)
 {
   return FALSE; /* For now, we never want this to do anything */
@@ -1863,6 +1919,15 @@ meta_preference_to_string (MetaPreference pref)
 
     case META_PREF_UNREDIRECT_FULLSCREEN_WINDOWS:
       return "UNREDIRECT_FULLSCREEN_WINDOWS";
+
+    case META_PREF_SYNC_TO_VBLANK:
+      return "SYNC_TO_VBLANK";
+
+    case META_PREF_THREADED_SWAP:
+      return "THREADED_SWAP";
+
+    case META_PREF_SEND_FRAME_TIMINGS:
+      return "SEND_FRAME_TIMINGS";
 
     case META_PREF_SNAP_MODIFIER:
       return "SNAP_MODIFIER";

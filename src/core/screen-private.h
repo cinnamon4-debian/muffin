@@ -48,6 +48,7 @@ struct _MetaMonitorInfo
   gboolean is_primary;
   gboolean in_fullscreen;
   XID output; /* The primary or first output for this crtc, None if no xrandr */
+  float refresh_rate;
 };
 
 typedef void (* MetaScreenWindowFunc) (MetaScreen *screen, MetaWindow *window,
@@ -140,6 +141,7 @@ struct _MetaScreen
    * and restack them below a guard window. When using a compositor
    * this allows us to provide live previews of unmapped windows */
   Window guard_window;
+  Window composite_overlay_window;
 };
 
 struct _MetaScreenClass
