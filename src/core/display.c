@@ -35,6 +35,7 @@
 #define _XOPEN_SOURCE 600 /* for gethostname() */
 
 #include <config.h>
+#include <errno.h>
 #include "display-private.h"
 #include <meta/util.h>
 #include <meta/main.h>
@@ -143,6 +144,8 @@ enum
   ZOOM_SCROLL_IN,
   ZOOM_SCROLL_OUT,
   BELL,
+  GL_VIDEO_MEMORY_PURGED,
+  RESTART,
   LAST_SIGNAL
 };
 
@@ -305,6 +308,29 @@ meta_display_class_init (MetaDisplayClass *klass)
                   NULL, NULL, NULL,
                   G_TYPE_NONE, 1, META_TYPE_WINDOW);
 
+  display_signals[GL_VIDEO_MEMORY_PURGED] =
+    g_signal_new ("gl-video-memory-purged",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_LAST,
+                  0,
+                  NULL, NULL, NULL,
+                  G_TYPE_NONE, 0);
+
+  /**
+   * MetaDisplay::restart:
+   * @display: the #MetaDisplay instance
+   *
+   * The ::restart signal is emitted to indicate that Muffin
+   * will restart the process.
+   */
+  display_signals[RESTART] =
+    g_signal_new ("restart",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_LAST,
+                  0,
+                  NULL, NULL, NULL,
+                  G_TYPE_NONE, 0);
+
   g_object_class_install_property (object_class,
                                    PROP_FOCUS_WINDOW,
                                    g_param_spec_object ("focus-window",
@@ -457,6 +483,7 @@ meta_display_open (void)
   GSList *tmp;
   int i;
   guint32 timestamp;
+  Window old_active_xwindow = None;
   char buf[257];
 
   /* A list of all atom names, so that we can intern them in one go. */
@@ -868,8 +895,12 @@ meta_display_open (void)
       return FALSE;
     }
 
-  /* We don't composite the windows here because they will be composited 
-     faster with the call to meta_screen_manage_all_windows further down 
+  meta_prop_get_window (the_display, ((MetaScreen*) the_display->screens->data)->xroot,
+                        the_display->atom__NET_ACTIVE_WINDOW,
+                        &old_active_xwindow);
+
+  /* We don't composite the windows here because they will be composited
+     faster with the call to meta_screen_manage_all_windows further down
      the code */
   enable_compositor (the_display, FALSE);
    
@@ -887,44 +918,23 @@ meta_display_open (void)
     }
 
   {
-    Window focus;
-    int ret_to;
-
-    /* kinda bogus because GetInputFocus has no possible errors */
     meta_error_trap_push (the_display);
 
-    /* FIXME: This is totally broken; see comment 9 of bug 88194 about this */
-    focus = None;
-    ret_to = RevertToPointerRoot;
-    XGetInputFocus (the_display->xdisplay, &focus, &ret_to);
-
-    /* Force a new FocusIn (does this work?) */
-
-    /* Use the same timestamp that was passed to meta_screen_new(),
-     * as it is the most recent timestamp.
-     */
-    if (focus == None || focus == PointerRoot)
-      /* Just focus the no_focus_window on the first screen */
-      meta_display_focus_the_no_focus_window (the_display,
-                                              the_display->screens->data,
-                                              timestamp);
-    else
+    if (old_active_xwindow != None)
       {
-        MetaWindow * window;
-        window  = meta_display_lookup_x_window (the_display, focus);
-        if (window)
-          meta_display_set_input_focus_window (the_display, window, FALSE, timestamp);
+        MetaWindow *old_active_window = meta_display_lookup_x_window (the_display, old_active_xwindow);
+        if (old_active_window)
+          meta_display_set_input_focus_window (the_display, old_active_window, FALSE, timestamp);
         else
-          /* Just focus the no_focus_window on the first screen */
-          meta_display_focus_the_no_focus_window (the_display,
-                                                  the_display->screens->data,
-                                                  timestamp);
+          meta_display_focus_the_no_focus_window (the_display, the_display->screens->data, timestamp);
       }
+    else
+      meta_display_focus_the_no_focus_window (the_display, the_display->screens->data, timestamp);
 
     meta_error_trap_pop (the_display);
   }
-  
-  meta_display_ungrab (the_display);  
+
+  meta_display_ungrab (the_display);
 
   /* Done opening new display */
   the_display->display_opening = FALSE;
@@ -1592,44 +1602,6 @@ meta_display_queue_autoraise_callback (MetaDisplay *display,
                         g_free);
   display->autoraise_window = window;
 }
-
-#if 0
-static void
-handle_net_restack_window (MetaDisplay* display,
-                           XEvent *event)
-{
-  MetaWindow *window;
-
-  window = meta_display_lookup_x_window (display,
-                                         event->xclient.window);
-
-  if (window)
-    {
-      /* FIXME: The EWMH includes a sibling for the restack request, but we
-       * (stupidly) don't currently support these types of raises.
-       *
-       * Also, unconditionally following these is REALLY stupid--we should
-       * combine this code with the stuff in
-       * meta_window_configure_request() which is smart about whether to
-       * follow the request or do something else (though not smart enough
-       * and is also too stupid to handle the sibling stuff).
-       */
-      switch (event->xclient.data.l[2])
-        {
-        case Above:
-          meta_window_raise (window);
-          break;
-        case Below:
-          meta_window_lower (window);
-          break;
-        case TopIf:
-        case BottomIf:
-        case Opposite:
-          break;          
-        }
-    }
-}
-#endif
 
 /*
  * This is the most important function in the whole program. It is the heart,
@@ -2393,7 +2365,9 @@ event_callback (XEvent   *event,
 
           screen = meta_display_screen_for_root (display,
                                                  event->xconfigure.event);
-          if (screen)
+          if (screen &&
+              event->xconfigure.event == screen->xroot &&
+              event->xconfigure.window != screen->composite_overlay_window)
             meta_stack_tracker_configure_event (screen->stack_tracker,
                                                 &event->xconfigure);
         }
@@ -4191,6 +4165,9 @@ meta_display_update_active_window_hint (MetaDisplay *display)
   
   gulong data[1];
 
+  if (display->closing)
+    return; /* Leave old value for a replacement */
+
   if (display->focus_window)
     data[0] = display->focus_window->xwindow;
   else
@@ -4226,9 +4203,11 @@ meta_display_queue_retheme_all_windows (MetaDisplay *display)
       MetaWindow *window = tmp->data;
       
       meta_window_queue (window, META_QUEUE_MOVE_RESIZE);
+      meta_window_frame_size_changed (window);
       if (window->frame)
         {
           meta_frame_queue_draw (window->frame);
+          meta_window_update_corners (window);
         }
       
       tmp = tmp->next;
@@ -5670,4 +5649,67 @@ Window
 meta_display_get_leader_window (MetaDisplay *display)
 {
   return display->leader_window;
+}
+
+static gboolean
+meta_display_restart_internal (MetaDisplay *display)
+{
+  GPtrArray *arr;
+  gsize len;
+
+  char *buf;
+  char *buf_p;
+  char *buf_end;
+  GError *error = NULL;
+
+  if (!g_file_get_contents ("/proc/self/cmdline", &buf, &len, &error))
+    {
+      g_warning ("Failed to get /proc/self/cmdline: %s", error->message);
+      return FALSE;
+    }
+
+  buf_end = buf+len;
+  arr = g_ptr_array_new ();
+  /* The cmdline file is NUL-separated */
+  for (buf_p = buf; buf_p < buf_end; buf_p = buf_p + strlen (buf_p) + 1)
+    g_ptr_array_add (arr, buf_p);
+
+  g_ptr_array_add (arr, NULL);
+
+  /* Close all file descriptors other than stdin/stdout/stderr, otherwise
+   * they will leak and stay open after the exec. In particular, this is
+   * important for file descriptors that represent mapped graphics buffer
+   * objects.
+   */
+  meta_pre_exec_close_fds ();
+
+  meta_display_unmanage_screen (display,
+                                (MetaScreen*) display->screens->data,
+                                meta_display_get_current_time (display));
+
+  execvp (arr->pdata[0], (char**)arr->pdata);
+  g_warning ("Failed to reexec: %s", g_strerror (errno));
+  g_ptr_array_free (arr, TRUE);
+  g_free (buf);
+  return FALSE;
+}
+
+LOCAL_SYMBOL void
+meta_display_notify_restart (MetaDisplay *display)
+{
+  g_signal_emit (display, display_signals[RESTART], 0);
+}
+
+/**
+ * meta_display_restart:
+ * @display: a #MetaDisplay
+ *
+ * Restart the current process.  Only intended for development purposes.
+ */
+void
+meta_display_restart (MetaDisplay *display)
+{
+  g_idle_add_full (G_PRIORITY_LOW,
+                   (GSourceFunc) meta_display_restart_internal,
+                   display, NULL);
 }

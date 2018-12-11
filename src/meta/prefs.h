@@ -39,6 +39,7 @@ typedef enum
   META_PREF_FOCUS_MODE,
   META_PREF_FOCUS_NEW_WINDOWS,
   META_PREF_ATTACH_MODAL_DIALOGS,
+  META_PREF_IGNORE_HIDE_TITLEBAR_WHEN_MAXIMIZED,
   META_PREF_RAISE_ON_CLICK,
   META_PREF_ACTION_DOUBLE_CLICK_TITLEBAR,
   META_PREF_ACTION_MIDDLE_CLICK_TITLEBAR,
@@ -51,6 +52,9 @@ typedef enum
   META_PREF_NUM_WORKSPACES,
   META_PREF_DYNAMIC_WORKSPACES,
   META_PREF_UNREDIRECT_FULLSCREEN_WINDOWS,
+  META_PREF_SYNC_TO_VBLANK,
+  META_PREF_THREADED_SWAP,
+  META_PREF_SEND_FRAME_TIMINGS,
   META_PREF_APPLICATION_BASED,
   META_PREF_KEYBINDINGS,
   META_PREF_DISABLE_WORKAROUNDS,
@@ -105,6 +109,7 @@ guint                       meta_prefs_get_mouse_button_menu  (void);
 CDesktopFocusMode           meta_prefs_get_focus_mode         (void);
 CDesktopFocusNewWindows     meta_prefs_get_focus_new_windows  (void);
 gboolean                    meta_prefs_get_attach_modal_dialogs (void);
+gboolean                    meta_prefs_get_ignore_hide_titlebar_when_maximized (void);
 gboolean                    meta_prefs_get_raise_on_click     (void);
 const char*                 meta_prefs_get_theme              (void);
 /* returns NULL if GTK default should be used */
@@ -113,6 +118,9 @@ int                         meta_prefs_get_num_workspaces     (void);
 gboolean                    meta_prefs_get_workspace_cycle    (void);
 gboolean                    meta_prefs_get_dynamic_workspaces (void);
 gboolean                    meta_prefs_get_unredirect_fullscreen_windows (void);
+gboolean                    meta_prefs_get_sync_to_vblank (void);
+gboolean                    meta_prefs_get_threaded_swap (void);
+gboolean                    meta_prefs_get_send_frame_timings (void);
 gboolean                    meta_prefs_get_application_based  (void);
 gboolean                    meta_prefs_get_disable_workarounds (void);
 gboolean                    meta_prefs_get_auto_raise         (void);
@@ -183,6 +191,7 @@ gint meta_prefs_get_ui_scale (void);
 typedef enum _MetaKeyBindingAction
 {
   META_KEYBINDING_ACTION_NONE = -1,
+  /* WARNING: Watch keybindings.c 'process_event' if you change these enums */
   META_KEYBINDING_ACTION_WORKSPACE_1,
   META_KEYBINDING_ACTION_WORKSPACE_2,
   META_KEYBINDING_ACTION_WORKSPACE_3,

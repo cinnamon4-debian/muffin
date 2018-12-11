@@ -81,6 +81,12 @@
 /* #define DEBUG_TRACE g_print */
 #define DEBUG_TRACE(X)
 
+static void
+frame_callback (ClutterStage     *stage,
+                CoglFrameEvent    event,
+                ClutterFrameInfo *frame_info,
+                MetaCompScreen   *info);
+
 static inline gboolean
 composite_at_least_version (MetaDisplay *display, int maj, int min)
 {
@@ -231,7 +237,7 @@ get_output_window (MetaScreen *screen)
                ButtonPressMask | ButtonReleaseMask |
                KeyPressMask | KeyReleaseMask;
 
-  output = XCompositeGetOverlayWindow (xdisplay, xroot);
+  output = screen->composite_overlay_window;
 
   if (XGetWindowAttributes (xdisplay, output, &attr))
       {
@@ -397,10 +403,10 @@ meta_set_stage_input_region (MetaScreen   *screen,
     {
       do_set_stage_input_region (screen, region);
     }
-  else 
+  else
     {
       /* Reset info->pending_input_region if one existed before and set the new
-       * one to use it later. */ 
+       * one to use it later. */
       if (info->pending_input_region)
         {
           XFixesDestroyRegion (xdpy, info->pending_input_region);
@@ -411,7 +417,7 @@ meta_set_stage_input_region (MetaScreen   *screen,
           info->pending_input_region = XFixesCreateRegion (xdpy, NULL, 0);
           XFixesCopyRegion (xdpy, info->pending_input_region, region);
         }
-    } 
+    }
 }
 
 void
@@ -549,25 +555,16 @@ after_stage_paint (ClutterStage *stage,
     meta_window_actor_post_paint (l->data);
 }
 
-void
-meta_compositor_manage_screen (MetaCompositor *compositor,
-                               MetaScreen     *screen)
+static void
+redirect_windows (MetaCompositor *compositor,
+                  MetaScreen     *screen)
 {
-  MetaCompScreen *info;
-  MetaDisplay    *display       = meta_screen_get_display (screen);
-  Display        *xdisplay      = meta_display_get_xdisplay (display);
-  int             screen_number = meta_screen_get_screen_number (screen);
-  Window          xroot         = meta_screen_get_xroot (screen);
-  Window          xwin;
-  gint            width, height;
-  XWindowAttributes attr;
-  long            event_mask;
-  guint           n_retries;
-  guint           max_retries;
-
-  /* Check if the screen is already managed */
-  if (meta_screen_get_compositor_data (screen))
-    return;
+  MetaDisplay *display       = meta_screen_get_display (screen);
+  Display     *xdisplay      = meta_display_get_xdisplay (display);
+  Window       xroot         = meta_screen_get_xroot (screen);
+  int          screen_number = meta_screen_get_screen_number (screen);
+  guint        n_retries;
+  guint        max_retries;
 
   if (meta_get_replace_current_wm ())
     max_retries = 5;
@@ -600,17 +597,53 @@ meta_compositor_manage_screen (MetaCompositor *compositor,
       n_retries++;
       g_usleep (G_USEC_PER_SEC);
     }
+}
+
+LOCAL_SYMBOL void
+meta_compositor_toggle_send_frame_timings (MetaScreen *screen)
+{
+  MetaCompScreen *info = meta_screen_get_compositor_data (screen);
+  if (meta_prefs_get_send_frame_timings())
+    {
+      g_signal_connect_after (CLUTTER_STAGE (info->stage), "presented",
+                              G_CALLBACK (frame_callback), info);
+    }
+  else
+    {
+      g_signal_handlers_disconnect_by_func (CLUTTER_STAGE (info->stage),
+                                            frame_callback, NULL);
+    }
+}
+
+void
+meta_compositor_manage_screen (MetaCompositor *compositor,
+                               MetaScreen     *screen)
+{
+  MetaCompScreen *info;
+  MetaDisplay    *display       = meta_screen_get_display (screen);
+  Display        *xdisplay      = meta_display_get_xdisplay (display);
+  Window          xwin;
+  gint            width, height;
+  XWindowAttributes attr;
+  long            event_mask;
+
+  redirect_windows (compositor, screen);
+
+  /* Check if the screen is already managed */
+  if (meta_screen_get_compositor_data (screen))
+    return;
 
   info = g_new0 (MetaCompScreen, 1);
   /*
    * We use an empty input region for Clutter as a default because that allows
    * the user to interact with all the windows displayed on the screen.
-   * We have to initialize info->pending_input_region to an empty region explicitly, 
+   * We have to initialize info->pending_input_region to an empty region explicitly,
    * because None value is used to mean that the whole screen is an input region.
    */
   info->pending_input_region = XFixesCreateRegion (xdisplay, NULL, 0);
 
   info->screen = screen;
+  info->compositor = compositor;
 
   meta_screen_set_compositor_data (screen, info);
 
@@ -621,15 +654,10 @@ meta_compositor_manage_screen (MetaCompositor *compositor,
 
   info->stage = clutter_stage_new ();
 
-#if CLUTTER_CHECK_VERSION (1, 19, 5) /* Unstable API change */
+  meta_compositor_toggle_send_frame_timings(screen);
+
   g_signal_connect_after (CLUTTER_STAGE (info->stage), "after-paint",
                           G_CALLBACK (after_stage_paint), info);
-#else
-  clutter_stage_set_paint_callback (CLUTTER_STAGE (info->stage),
-                                    after_stage_paint,
-                                    info,
-                                    NULL);
-#endif
 
   clutter_stage_set_sync_delay (CLUTTER_STAGE (info->stage), META_SYNC_DELAY);
 
@@ -683,10 +711,10 @@ meta_compositor_manage_screen (MetaCompositor *compositor,
   info->output = get_output_window (screen);
   XReparentWindow (xdisplay, xwin, info->output, 0, 0);
 
- /* Make sure there isn't any left-over output shape on the 
+ /* Make sure there isn't any left-over output shape on the
   * overlay window by setting the whole screen to be an
   * output region.
-  * 
+  *
   * Note: there doesn't seem to be any real chance of that
   *  because the X server will destroy the overlay window
   *  when the last client using it exits.
@@ -702,6 +730,11 @@ meta_compositor_manage_screen (MetaCompositor *compositor,
 
   clutter_actor_show (info->overlay_group);
   clutter_actor_show (info->stage);
+
+  /* Map overlay window before redirecting windows offscreen so we catch their
+   * contents until we show the stage.
+   */
+  XMapWindow (xdisplay, info->output);
 
   compositor->have_x11_sync_object = meta_sync_ring_init (xdisplay);
 }
@@ -857,6 +890,9 @@ meta_compositor_window_shape_changed (MetaCompositor *compositor,
 {
   MetaWindowActor *window_actor;
   window_actor = META_WINDOW_ACTOR (meta_window_get_compositor_private (window));
+  if (!window_actor)
+    return;
+
   meta_window_actor_update_shape (window_actor);
 }
 
@@ -936,8 +972,10 @@ meta_compositor_process_event (MetaCompositor *compositor,
               window = meta_display_lookup_x_window (compositor->display, xwin);
             }
 
-	  DEBUG_TRACE ("meta_compositor_process_event (process_damage)\n");
-          process_damage (compositor, (XDamageNotifyEvent *) event, window);
+          DEBUG_TRACE ("meta_compositor_process_event (process_damage)\n");
+
+          if (window)
+            process_damage (compositor, (XDamageNotifyEvent *) event, window);
         }
       break;
     }
@@ -1123,16 +1161,18 @@ sync_actor_stacking (MetaCompScreen *info)
   if (!reordered)
     return;
 
+  ClutterActor *parent;
+
   for (tmp = g_list_last (info->windows); tmp != NULL; tmp = tmp->prev)
     {
       ClutterActor *actor = tmp->data;
 
-      if (clutter_actor_get_parent (actor) == info->window_group)
-        clutter_actor_set_child_below_sibling (info->window_group, actor, NULL);
+      parent = clutter_actor_get_parent (actor);
+      clutter_actor_set_child_below_sibling (parent, actor, NULL);
     }
 
-  if (clutter_actor_get_parent (info->background_actor) == info->window_group)
-    clutter_actor_set_child_below_sibling (info->window_group, info->background_actor, NULL);
+  parent = clutter_actor_get_parent (info->background_actor);
+  clutter_actor_set_child_below_sibling (parent, info->background_actor, NULL);
 }
 
 void
@@ -1272,17 +1312,16 @@ meta_compositor_sync_screen_size (MetaCompositor  *compositor,
 }
 
 static void
-frame_callback (CoglOnscreen  *onscreen,
-                CoglFrameEvent event,
-                CoglFrameInfo *frame_info,
-                void          *user_data)
+frame_callback (ClutterStage     *stage,
+                CoglFrameEvent    event,
+                ClutterFrameInfo *frame_info,
+                MetaCompScreen   *info)
 {
-  MetaCompScreen *info = user_data;
   GList *l;
 
   if (event == COGL_FRAME_EVENT_COMPLETE)
     {
-      gint64 presentation_time_cogl = cogl_frame_info_get_presentation_time (frame_info);
+      gint64 presentation_time_cogl = frame_info->presentation_time;
       gint64 presentation_time;
 
       if (presentation_time_cogl != 0)
@@ -1296,8 +1335,7 @@ frame_callback (CoglOnscreen  *onscreen,
            * is fairly fast, so calling it twice and subtracting to get a
            * nearly-zero number is acceptable, if a litle ugly.
            */
-          CoglContext *context = cogl_framebuffer_get_context (COGL_FRAMEBUFFER (onscreen));
-          gint64 current_cogl_time = cogl_get_clock_time (context);
+          gint64 current_cogl_time = cogl_get_clock_time (info->compositor->context);
           gint64 current_monotonic_time = g_get_monotonic_time ();
 
           presentation_time =
@@ -1323,17 +1361,8 @@ meta_pre_paint_func (gpointer data)
   MetaWindowActor *top_window;
   MetaWindowActor *expected_unredirected_window = NULL;
 
-  if (info->onscreen == NULL)
-    {
-      info->onscreen = COGL_ONSCREEN (cogl_get_draw_framebuffer ());
-      info->frame_closure = cogl_onscreen_add_frame_callback (info->onscreen,
-                                                              frame_callback,
-                                                              info,
-                                                              NULL);
-    }
-
   if (info->windows == NULL)
-    return TRUE;;
+    return TRUE;
 
   top_window = g_list_last (info->windows)->data;
 
@@ -1400,6 +1429,9 @@ static gboolean
 meta_post_paint_func (gpointer data)
 {
   MetaCompositor *compositor = data;
+  MetaScreen *screen = (MetaScreen*) compositor->display->screens->data;
+  MetaCompScreen *info = meta_screen_get_compositor_data (screen);
+  CoglGraphicsResetStatus status;
 
   if (compositor->frame_has_updated_xsurfaces)
     {
@@ -1407,6 +1439,28 @@ meta_post_paint_func (gpointer data)
         compositor->have_x11_sync_object = meta_sync_ring_after_frame ();
 
       compositor->frame_has_updated_xsurfaces = FALSE;
+    }
+
+  status = cogl_get_graphics_reset_status (compositor->context);
+  switch (status)
+    {
+    case COGL_GRAPHICS_RESET_STATUS_NO_ERROR:
+      break;
+
+    case COGL_GRAPHICS_RESET_STATUS_PURGED_CONTEXT_RESET:
+      g_signal_emit_by_name (compositor->display, "gl-video-memory-purged");
+      clutter_actor_queue_redraw (CLUTTER_ACTOR (info->stage));
+      break;
+
+    default:
+      /* The ARB_robustness spec says that, on error, the application
+         should destroy the old context and create a new one. Since we
+         don't have the necessary plumbing to do this we'll simply
+         restart the process. Obviously we can't do this when we are
+         a wayland compositor but in that case we shouldn't get here
+         since we don't enable robustness in that case. */
+      meta_restart ();
+      break;
     }
 
   return TRUE;
@@ -1454,6 +1508,7 @@ meta_compositor_new (MetaDisplay *display)
   compositor = g_new0 (MetaCompositor, 1);
 
   compositor->display = display;
+  compositor->context = clutter_backend_get_cogl_context (clutter_get_default_backend ());
 
   if (g_getenv("META_DISABLE_MIPMAPS"))
     compositor->no_mipmaps = TRUE;
@@ -1533,6 +1588,7 @@ meta_enable_unredirect_for_screen (MetaScreen *screen)
 
 static void
 flash_out_completed (ClutterTimeline *timeline,
+                     gboolean         is_finished,
                      gpointer         user_data)
 {
   ClutterActor *flash = CLUTTER_ACTOR (user_data);
@@ -1566,7 +1622,7 @@ meta_compositor_flash_screen (MetaCompositor *compositor,
   clutter_timeline_set_auto_reverse (CLUTTER_TIMELINE (transition), TRUE);
   clutter_timeline_set_repeat_count (CLUTTER_TIMELINE (transition), 2);
 
-  g_signal_connect (transition, "finished",
+  g_signal_connect (transition, "stopped",
                     G_CALLBACK (flash_out_completed), flash);
 
   clutter_actor_restore_easing_state (flash);
