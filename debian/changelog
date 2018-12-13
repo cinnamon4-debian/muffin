@@ -2,7 +2,7 @@ muffin (4.0.4-1~) UNRELEASED; urgency=medium
 
   * New upstream release (4.0.4)
 
- -- Norbert Preining <preining@debian.org>  Tue, 11 Dec 2018 17:12:19 +0900
+ -- Norbert Preining <preining@debian.org>  Thu, 13 Dec 2018 13:35:32 +0900
 
 muffin (3.8.2-1) unstable; urgency=medium
 
