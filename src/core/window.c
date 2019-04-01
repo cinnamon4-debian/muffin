@@ -203,7 +203,6 @@ enum
   UNMANAGED,
   SIZE_CHANGED,
   POSITION_CHANGED,
-  RESIZING,
 
   LAST_SIGNAL
 };
@@ -656,15 +655,6 @@ meta_window_class_init (MetaWindowClass *klass)
                   0,
                   NULL, NULL, NULL,
                   G_TYPE_NONE, 0);
-
-  window_signals[RESIZING] =
-    g_signal_new ("resizing",
-                  G_TYPE_FROM_CLASS (object_class),
-                  G_SIGNAL_RUN_LAST,
-                  0,
-                  NULL, NULL, NULL,
-                  G_TYPE_NONE, 0);
-
 }
 
 static void
@@ -3827,11 +3817,11 @@ meta_window_real_tile (MetaWindow *window, gboolean force)
     {
       MetaRectangle old_rect;
       MetaRectangle new_rect;
-      meta_window_get_outer_rect (window, &old_rect);
+      meta_window_get_input_rect (window, &old_rect);
 
       meta_window_move_resize_now (window);
 
-      meta_window_get_outer_rect (window, &new_rect);
+      meta_window_get_input_rect (window, &new_rect);
       meta_compositor_tile_window (window->display->compositor,
                                    window,
                                    &old_rect,
@@ -5946,6 +5936,37 @@ meta_window_get_outer_rect (const MetaWindow *window,
           rect->height -= extents->top + extents->bottom;
         }
     }
+}
+
+/**
+ * meta_window_get_client_area_rect:
+ * @window: a #MetaWindow
+ * @rect: (out): pointer to a cairo rectangle
+ *
+ * Gets the rectangle for the boundaries of the client area, relative
+ * to the frame. If the window is shaded, the height of the rectangle
+ * is 0.
+ */
+void
+meta_window_get_client_area_rect (const MetaWindow      *window,
+                                  cairo_rectangle_int_t *rect)
+{
+  if (window->frame)
+    {
+      rect->x = window->frame->child_x;
+      rect->y = window->frame->child_y;
+    }
+  else
+    {
+      rect->x = 0;
+      rect->y = 0;
+    }
+
+  rect->width = window->rect.width;
+  if (window->shaded)
+    rect->height = 0;
+  else
+    rect->height = window->rect.height;
 }
 
 MetaSide
@@ -8446,10 +8467,7 @@ void
 meta_window_frame_size_changed (MetaWindow *window)
 {
   if (window->frame)
-    {
-      meta_frame_clear_cached_borders (window->frame);
-      g_signal_emit (window, window_signals[RESIZING], 0);
-    }
+    meta_frame_clear_cached_borders (window->frame);
 }
 
 static void
@@ -10045,10 +10063,7 @@ update_resize (MetaWindow *window,
   /* Store the latest resize time, if we actually resized. */
 
   if (window->rect.width != old.width || window->rect.height != old.height)
-    {
-      g_get_current_time (&window->display->grab_last_moveresize_time);
-      g_signal_emit (window, window_signals[RESIZING], 0);
-    }
+    g_get_current_time (&window->display->grab_last_moveresize_time);
 }
 
 typedef struct
@@ -12358,10 +12373,4 @@ meta_window_get_icon_name (MetaWindow *window)
     g_return_val_if_fail (META_IS_WINDOW (window), NULL);
 
     return window->theme_icon_name;
-}
-
-LOCAL_SYMBOL void
-meta_window_update_corners (MetaWindow *window)
-{
-  g_signal_emit (window, window_signals[RESIZING], 0);
 }
