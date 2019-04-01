@@ -2649,6 +2649,8 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_compositor_add_window@Base 1.1.0
  meta_compositor_destroy@Base 1.1.0
  meta_compositor_flash_screen@Base 1.1.0
+ meta_compositor_grab_op_begin@Base 4.0.7-1~
+ meta_compositor_grab_op_end@Base 4.0.7-1~
  meta_compositor_hide_hud_preview@Base 2.6.0
  meta_compositor_hide_tile_preview@Base 2.6.0
  meta_compositor_hide_window@Base 1.1.0
@@ -2898,7 +2900,6 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_screen_for_x_screen@Base 1.1.0
  meta_screen_get_active_workspace@Base 1.1.0
  meta_screen_get_active_workspace_index@Base 1.1.0
- meta_screen_get_compositor_data@Base 1.1.0
  meta_screen_get_current_monitor@Base 2.8.1
  meta_screen_get_current_monitor_info@Base 2.8.1
  meta_screen_get_display@Base 1.1.0
@@ -2921,7 +2922,6 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_screen_queue_check_fullscreen@Base 3.0.3
  meta_screen_remove_workspace@Base 1.1.0
  meta_screen_set_cm_selection@Base 1.1.0
- meta_screen_set_compositor_data@Base 1.1.0
  meta_screen_show_desktop@Base 1.1.0
  meta_screen_toggle_desktop@Base 2.0.5
  meta_screen_ungrab_all_keys@Base 1.1.0
@@ -3004,6 +3004,7 @@ libmuffin.so.0 libmuffin0 #MINVER#
  meta_window_foreach_transient@Base 1.1.0
  meta_window_frame_size_changed@Base 4.0.4-1~
  meta_window_get_all_monitors@Base 3.0.3
+ meta_window_get_client_area_rect@Base 4.0.7-1~
  meta_window_get_client_machine@Base 1.1.0
  meta_window_get_compositor_private@Base 1.1.0
  meta_window_get_current_tile_monitor_number@Base 2.6.0
